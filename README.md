@@ -268,6 +268,7 @@ This feature is integrated with `class System`. The path of mapfile can be set b
 
 <!-- To save a map, you need construct `ORB_SLAM2::System` with the last parameter (is_save_map) be `true`. Then the `System` will save map to mapfile (create if non-existent, overwrite if existent) specified in then setting file when `ShutDown` (e.g. interrupted by ctrl+c). -->
 To save a map, add 'save' at the end of the rosrun command.
+
 **Example**
  ```
   rosrun ORB_SLAM2 RGBD PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE save
