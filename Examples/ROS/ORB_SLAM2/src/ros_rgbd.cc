@@ -29,6 +29,9 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
+#include "tf/transform_datatypes.h"
+#include <tf/transform_broadcaster.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include<opencv2/core/core.hpp>
 
@@ -109,7 +112,42 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         return;
     }
 
-    mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+    cv::Mat pose = mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+
+    if (pose.empty())
+        return;
+
+    static cv::Mat pose_prev = cv::Mat::eye(4, 4, CV_32F);
+    static cv::Mat world_lh = cv::Mat::eye(4, 4, CV_32F);
+    static const cv::Mat flipSign = (cv::Mat_<float>(4,4) << 1,-1, -1, 1,
+                                                            -1, 1, -1, 1,
+                                                            -1, -1, 1, 1,
+                                                            1, 1, 1, 1);
+    
+    cv::Mat translation = (pose* pose_prev.inv()).mul(flipSign);
+    world_lh = world_lh * translation;
+    pose_prev = pose.clone();
+
+    tf::Matrix3x3 cameraRotation_rh( -world_lh.at<float>(0,0), world_lh.at<float>(0,1), world_lh.at<float>(0,2), 
+                                    -world_lh.at<float>(1,0), world_lh.at<float>(1,1), world_lh.at<float>(1,2),
+                                    world_lh.at<float>(2,0), -world_lh.at<float>(2,1), -world_lh.at<float>(2,2));
+
+    tf::Vector3 cameraTranslation(world_lh.at<float>(0,3), world_lh.at<float>(1,3), -world_lh.at<float>(2,3));
+
+    
+    const tf::Matrix3x3 rotation270degXZ( 0, 1, 0,
+                                        0, 0, 1,
+                                        1, 0, 0);
+    
+    tf::Matrix3x3 globalRotation_rh = cameraRotation_rh * rotation270degXZ;
+    tf::Vector3 globalTranslation_rh = cameraTranslation * rotation270degXZ;
+    tf::Transform transform = tf::Transform(globalRotation_rh, globalTranslation_rh);
+    tf::Stamped<tf::Pose> grasp_tf_pose(transform);
+    
+    geometry_msgs::PoseStamped msg;
+    tf::poseStampedTFToMsg (grasp_tf_pose, msg);
+    
+
 }
 
 
