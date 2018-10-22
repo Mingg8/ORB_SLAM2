@@ -33,6 +33,8 @@
 #include<opencv2/core/core.hpp>
 
 #include"../../../include/System.h"
+#include "tf/transfor_datatypes.h"
+#include <tf/transform_broadcaster.h>
 
 using namespace std;
 
@@ -70,7 +72,6 @@ int main(int argc, char **argv)
     }    
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    cout<<"DDEBUG - Is map file saved? " << saveMapfile<<endl;
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::RGBD,true, saveMapfile);
 
     ImageGrabber igb(&SLAM);
