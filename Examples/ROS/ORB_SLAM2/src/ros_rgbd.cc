@@ -31,7 +31,8 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include "tf/transform_datatypes.h"
 #include <tf/transform_broadcaster.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <tf/transform_listener.h>
+#include <geometry_msgs/Pose.h>
 
 #include<opencv2/core/core.hpp>
 
@@ -39,7 +40,7 @@
 
 using namespace std;
 
-class ImageGrabber
+class ImageGrabber  
 {
 public:
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){}
@@ -47,6 +48,15 @@ public:
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
     ORB_SLAM2::System* mpSLAM;
+
+    bool isInitialized = false;
+    ///////////// mjlee modification ///////////
+    ofstream f;
+    geometry_msgs::Pose pose_msg;
+    
+    /////////////////////////////////////////
+
+
 };
 
 int main(int argc, char **argv)
@@ -66,15 +76,21 @@ int main(int argc, char **argv)
 
     ImageGrabber igb(&SLAM);
 
-    ros::NodeHandle nh;
+    igb.f.open("ros_rgbd_output.txt");
+    igb.f << fixed;
 
+
+    ros::NodeHandle nh;
+    ros::Publisher pose_pub= nh.advertise<geometry_msgs::PoseStamped>("/orb_pose", 30);
+    
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
-    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
 
-    ros::spin();
+    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
+    pose_pub.publish(igb.pose_msg);
+    ros::spin();    
 
     // Stop all threads
     SLAM.Shutdown();
@@ -85,10 +101,12 @@ int main(int argc, char **argv)
     ros::shutdown();
 
     return 0;
-}
+}   
 
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
+    
+
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptrRGB;
     try
@@ -112,6 +130,8 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         return;
     }
 
+
+    ///// mjlee modification ///////////////////
     cv::Mat pose = mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
 
     if (pose.empty())
@@ -142,11 +162,28 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     tf::Matrix3x3 globalRotation_rh = cameraRotation_rh * rotation270degXZ;
     tf::Vector3 globalTranslation_rh = cameraTranslation * rotation270degXZ;
     tf::Transform transform = tf::Transform(globalRotation_rh, globalTranslation_rh);
-    tf::Stamped<tf::Pose> grasp_tf_pose(transform);
-    
-    geometry_msgs::PoseStamped msg;
-    tf::poseStampedTFToMsg (grasp_tf_pose, msg);
-    
+
+    // float x = transform.getOrigin().x();
+    // float y = transform.getOrigin().y();
+    // float z = transform.getOrigin().z();
+
+
+
+    // msg.position.x=transform.getOrigin().x();
+    // msg.position.y=transform.getOrigin().y();
+    // msg.position.z=transform.getOrigin().z();
+    // msg.orientation.x=transform.getRotation().
+
+    pose_msg.position.x=transform.getOrigin().x();
+    pose_msg.position.y=transform.getOrigin().y();
+    pose_msg.position.z=transform.getOrigin().z();
+    pose_msg.orientation.x=transform.getRotation().x();
+    pose_msg.orientation.y=transform.getRotation().y();
+    pose_msg.orientation.z=transform.getRotation().z();
+    pose_msg.orientation.w=transform.getRotation().w();
+
+
+    // f << setprecision(9) << x << " " << y<< " " << z <<  endl;
 
 }
 
