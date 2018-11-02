@@ -44,43 +44,37 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-ImageGrabber(int _argc, char **_argv):argc(_argc), argv(_argv){}
-int argc;
-char **argv;
-ORB_SLAM2::System* SLAM;
-ofstream f;
-geometry_msgs::Pose pose_msg;
+    //ImageGrabber(int _argc, char **_argv, ORB_SLAM2::System* _SLAM):argc(_argc), argv(_argv), SLAM(_SLAM){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM):SLAM(_SLAM){}
+    //int argc;
+    //char **argv;
 
-ros::NodeHandle nh;
-ros::Publisher pose_pub;
-message_filters::Subscriber<sensor_msgs::Image>* rgb_sub;
-message_filters::Subscriber<sensor_msgs::Image>* depth_sub;
-message_filters::Synchronizer<sync_pol>* sync;
+    void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
+
+    void Initialize();
 
 
-void Initialize();
+    ORB_SLAM2::System* SLAM;
+    ofstream f;
+    geometry_msgs::Pose pose_msg;
 
-private:
-void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
-
+    ros::NodeHandle nh;
+    ros::Publisher pose_pub;
+    message_filters::Subscriber<sensor_msgs::Image>* rgb_sub;
+    message_filters::Subscriber<sensor_msgs::Image>* depth_sub;
+    message_filters::Synchronizer<sync_pol>* sync;
 };
 
 
 void ImageGrabber::Initialize()
 {
 
-    ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, true);
+//    ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, true);
 
-    if(argc != 3)
-    {
-        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;
-        ros::shutdown();
-        return;
-    }
+
 
     f.open("ros_rgbd_output.txt");
     f << fixed;
-    //    ORB_SLAM2::System SLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, true);
     pose_pub = nh.advertise<geometry_msgs::Pose>("/orb_pose", 30);
     rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "/camera/rgb/image_raw", 1);
     depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "camera/depth_registered/image_raw", 1);
@@ -90,9 +84,9 @@ void ImageGrabber::Initialize()
 
     ros::spin();
 
-    SLAM.Shutdown();
+    SLAM->Shutdown();
 
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
     ros::shutdown();
 
     return ;
@@ -104,7 +98,16 @@ int main(int argc, char **argv)
 {
 ros::init(argc, argv, "RGBD");
 ros::start();
-ImageGrabber igb(argc, argv);
+if(argc != 3)
+    {
+        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;
+        ros::shutdown();
+        return 0;
+    }
+
+ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, true);
+//ImageGrabber igb(argc, argv, &mainSLAM);
+ImageGrabber igb(&mainSLAM);
 igb.Initialize();
 
 }
@@ -114,6 +117,7 @@ igb.Initialize();
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
     // Copy the ros image message to cv::Mat.
+
     cv_bridge::CvImageConstPtr cv_ptrRGB;
     try
     {
@@ -140,7 +144,6 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
 //    cv::Mat pose = mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
     cv::Mat pose = SLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
 
-    std::cout<<"DDEBUG -2 "<<std::endl;
 
     if (pose.empty())
         return;
@@ -151,22 +154,22 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
                                                             -1, 1, -1, 1,
                                                             -1, -1, 1, 1,
                                                             1, 1, 1, 1);
-    
+
     cv::Mat translation = (pose* pose_prev.inv()).mul(flipSign);
     world_lh = world_lh * translation;
     pose_prev = pose.clone();
 
-    tf::Matrix3x3 cameraRotation_rh( -world_lh.at<float>(0,0), world_lh.at<float>(0,1), world_lh.at<float>(0,2), 
+    tf::Matrix3x3 cameraRotation_rh( -world_lh.at<float>(0,0), world_lh.at<float>(0,1), world_lh.at<float>(0,2),
                                     -world_lh.at<float>(1,0), world_lh.at<float>(1,1), world_lh.at<float>(1,2),
                                     world_lh.at<float>(2,0), -world_lh.at<float>(2,1), -world_lh.at<float>(2,2));
 
     tf::Vector3 cameraTranslation(world_lh.at<float>(0,3), world_lh.at<float>(1,3), -world_lh.at<float>(2,3));
 
-    
+
     const tf::Matrix3x3 rotation270degXZ( 0, 1, 0,
                                         0, 0, 1,
                                         1, 0, 0);
-    
+
     tf::Matrix3x3 globalRotation_rh = cameraRotation_rh * rotation270degXZ;
     tf::Vector3 globalTranslation_rh = cameraTranslation * rotation270degXZ;
     tf::Transform transform = tf::Transform(globalRotation_rh, globalTranslation_rh);
@@ -180,8 +183,8 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     pose_msg.orientation.w=transform.getRotation().w();
 
     pose_pub.publish(pose_msg);
-
-
-    // f << setprecision(9) << x << " " << y<< " " << z <<  endl;
+//
+//
+//     f << setprecision(9) << x << " " << y<< " " << z <<  endl;
 
 }
