@@ -27,6 +27,9 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include "tf/transform_datatypes.h"
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <fstream>
+#include <iostream>
 
 #include<opencv2/core/core.hpp>
 
@@ -38,29 +41,48 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM):SLAM(_SLAM){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _map_initialize):SLAM(_SLAM), map_initialize(_map_initialize){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
+    void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose);
     void Initialize();
 
     ORB_SLAM2::System* SLAM;
+    bool map_initialize;
     geometry_msgs::Pose pose_msg;
+    ofstream f_orb_pose;
+    ofstream f_amcl_pose;
 
     ros::NodeHandle nh;
     ros::Publisher pose_pub;
     message_filters::Subscriber<sensor_msgs::Image>* rgb_sub;
     message_filters::Subscriber<sensor_msgs::Image>* depth_sub;
     message_filters::Synchronizer<sync_pol>* sync;
+
+    std::vector<geometry_msgs::PoseWithCovarianceStamped> amcl_vec;
+
+
 };
 
 
 void ImageGrabber::Initialize()
 {
     pose_pub = nh.advertise<geometry_msgs::Pose>("/orb_pose", 30);
-    rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "/camera/rgb/image_raw", 1);
-    depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "camera/depth_registered/image_raw", 1);
+    rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "/astra/rgb/image_raw", 1);
+    depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "astra/depth/image_raw", 1);
 
     sync = new message_filters::Synchronizer<sync_pol>(sync_pol(10), *rgb_sub, *depth_sub);
     sync->registerCallback(boost::bind(&ImageGrabber::GrabRGBD, this, _1, _2));
+    ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
+
+//    if(map_initialize==true)
+//    {
+//        std::cout<<"map_initialize" <<std::endl;
+//        ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
+//    }
+//    else
+//        std::cout<<"NNOOOOOOOOOO"<<std::endl;
+    f_orb_pose.open("orb_pose_output.txt");
+    f_amcl_pose.open("amcl_pose_output.txt");
 
     ros::spin();
 
@@ -72,22 +94,38 @@ void ImageGrabber::Initialize()
     return ;
 }
 
+void ImageGrabber::amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose)
+{
+//    amcl_vec.push_back(amcl_pose);
+    f_amcl_pose << setprecision(6) << amcl_pose.header.stamp << setprecision(7) << " " << amcl_pose.pose.pose.position.x << " "<< amcl_pose.pose.pose.position.y
+        << " "<< amcl_pose.pose.pose.position.z << " " <<amcl_pose.pose.pose.orientation.x<<" "<<amcl_pose.pose.pose.orientation.y <<" "
+        <<amcl_pose.pose.pose.orientation.z << " "<<amcl_pose.pose.pose.orientation.w << endl;
+
+}
+
 
 
 int main(int argc, char **argv)
 {
 ros::init(argc, argv, "RGBD");
 ros::start();
-if(argc != 3)
+if(argc != 4)
     {
-        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;
+        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings, argc: " << argv[0] << endl;
         ros::shutdown();
         return 0;
     }
+bool map_initialize = false;
+
+std::cout << "argv3 : "  << std::endl;
+std::cout << "argv3 : "  << argv[3] << std::endl;
+
+map_initialize=true;
 
 ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, true);
-ImageGrabber igb(&mainSLAM);
+ImageGrabber igb(&mainSLAM, map_initialize);
 igb.Initialize();
+//igb.f.close();
 
 }
 
@@ -159,4 +197,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     pose_msg.orientation.w=transform.getRotation().w();
 
     pose_pub.publish(pose_msg);
+    f_orb_pose << fixed;
+    f_orb_pose << setprecision(6) << cv_ptrRGB->header.stamp.toSec() << setprecision(7) <<" "<< pose_msg.position.x << " "<< pose_msg.position.y << " "<< pose_msg.position.z << " "<<pose_msg.orientation.x<<" "<<pose_msg.orientation.y <<" " <<pose_msg.orientation.z << " "<<pose_msg.orientation.w <<endl;
+
 }
