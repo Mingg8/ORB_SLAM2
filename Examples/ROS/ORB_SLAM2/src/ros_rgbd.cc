@@ -40,12 +40,13 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM):SLAM(_SLAM){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _mapInitiation):SLAM(_SLAM), mapInitiation(_mapInitiation){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
     void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose);
     void Initialize();
 
     ORB_SLAM2::System* SLAM;
+    bool mapInitiation;
     geometry_msgs::Pose pose_msg;
     ofstream f_orb_pose;
     ofstream f_amcl_pose;
@@ -70,8 +71,14 @@ void ImageGrabber::Initialize()
 
     sync = new message_filters::Synchronizer<sync_pol>(sync_pol(10), *rgb_sub, *depth_sub);
     sync->registerCallback(boost::bind(&ImageGrabber::GrabRGBD, this, _1, _2));
-    ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
 
+    if (mapInitiation){
+        ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
+        //amcl, orb vector initialize
+    }
+
+
+    //FOR DEBUGGING
     f_orb_pose.open("orb_pose_output.txt");
     f_amcl_pose.open("amcl_pose_output.txt");
 
@@ -93,33 +100,37 @@ void ImageGrabber::amclCallback(const geometry_msgs::PoseWithCovarianceStamped& 
 }
 
 
-
 int main(int argc, char **argv)
 {
 ros::init(argc, argv, "RGBD");
 ros::start();
 
-bool saveMapfile = false;
-if(argc != 3 )
+bool mapInitiation = false;
+bool saveMapfile = true;
+
+//Check settings file
+cv::FileStorage fsSettings(argv[2], cv::FileStorage::READ);
+if(!fsSettings.isOpened())
 {
-    if(argc != 4){
-        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;
-        ros::shutdown();
-        return 1;
-    }
-    else{
-        string arg3(argv[3]);
-        if(arg3=="save"){
-            saveMapfile= true;
-        }
-    }
+   cerr << "Failed to open settings file at: " << argv[2] << endl;
+   exit(-1);
 }
 
-std::cout << "argv3 : "  << std::endl;
-std::cout << "argv3 : "  << argv[3] << std::endl;
+cv::FileNode loadmapfilen = fsSettings["Map.loadmapfile"];
+string loadmapfile = (string)loadmapfilen;
+std::ifstream in(loadmapfile, std::ios_base::binary);
+
+if (!in){
+cerr << "Cannot Open Mapfile: " << loadmapfile << " , You need create it first" << std::endl;
+mapInitiation = true;
+
+//amcl callback register
+}
+
+
 
 ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, saveMapfile);
-ImageGrabber igb(&mainSLAM);
+ImageGrabber igb(&mainSLAM, mapInitiation);
 igb.Initialize();
 
 }

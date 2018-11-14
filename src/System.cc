@@ -76,12 +76,13 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     time(&rawtime);
     timeinfo = localtime(&rawtime);
 
-    savemapfile = "map.bin";
+    cv::FileNode savemapfilen = fsSettings["Map.saveMapfile"];
 
     bool bReuseMap = false;
-    if (!loadmapfilen.empty())
+    if (!loadmapfilen.empty() && !savemapfilen.empty())
     {
         loadmapfile = (string)loadmapfilen;
+        savemapfile = (string)savemapfilen;
     }
 
     //Load ORB Vocabulary
