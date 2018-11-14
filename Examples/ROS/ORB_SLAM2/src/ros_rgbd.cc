@@ -34,7 +34,6 @@
 #include<opencv2/core/core.hpp>
 
 #include"../../../include/System.h"
-
 using namespace std;
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
 
@@ -74,22 +73,13 @@ void ImageGrabber::Initialize()
     sync->registerCallback(boost::bind(&ImageGrabber::GrabRGBD, this, _1, _2));
     ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
 
-//    if(map_initialize==true)
-//    {
-//        std::cout<<"map_initialize" <<std::endl;
-//        ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
-//    }
-//    else
-//        std::cout<<"NNOOOOOOOOOO"<<std::endl;
     f_orb_pose.open("orb_pose_output.txt");
     f_amcl_pose.open("amcl_pose_output.txt");
 
     ros::spin();
 
     SLAM->Shutdown();
-
     SLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
-    ros::shutdown();
 
     return ;
 }
@@ -109,23 +99,29 @@ int main(int argc, char **argv)
 {
 ros::init(argc, argv, "RGBD");
 ros::start();
-if(argc != 4)
-    {
-        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings, argc: " << argv[0] << endl;
+
+bool saveMapfile = false;
+if(argc != 3 )
+{
+    if(argc != 4){
+        cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;
         ros::shutdown();
-        return 0;
+        return 1;
     }
-bool map_initialize = false;
+    else{
+        string arg3(argv[3]);
+        if(arg3=="save"){
+            saveMapfile= true;
+        }
+    }
+}
 
 std::cout << "argv3 : "  << std::endl;
 std::cout << "argv3 : "  << argv[3] << std::endl;
 
-map_initialize=true;
-
-ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, true);
+ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, saveMapfile);
 ImageGrabber igb(&mainSLAM, map_initialize);
 igb.Initialize();
-//igb.f.close();
 
 }
 
