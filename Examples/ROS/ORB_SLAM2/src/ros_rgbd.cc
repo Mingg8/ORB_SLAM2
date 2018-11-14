@@ -40,13 +40,12 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _map_initialize):SLAM(_SLAM), map_initialize(_map_initialize){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM):SLAM(_SLAM){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
     void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose);
     void Initialize();
 
     ORB_SLAM2::System* SLAM;
-    bool map_initialize;
     geometry_msgs::Pose pose_msg;
     ofstream f_orb_pose;
     ofstream f_amcl_pose;
@@ -120,7 +119,7 @@ std::cout << "argv3 : "  << std::endl;
 std::cout << "argv3 : "  << argv[3] << std::endl;
 
 ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, saveMapfile);
-ImageGrabber igb(&mainSLAM, map_initialize);
+ImageGrabber igb(&mainSLAM);
 igb.Initialize();
 
 }
