@@ -30,10 +30,15 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <python2.7/Python.h>
 
-#include<opencv2/core/core.hpp>
 
-#include"../../../include/System.h"
+#include"../../../../include/System.h"
 using namespace std;
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
 
@@ -45,7 +50,8 @@ public:
     void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose);
     void Initialize();
 
-    ORB_SLAM2::System* SLAM;
+    ORB_SLAM2::System* SLAM ;
+    ros::NodeHandle private_nh;
     bool mapInitiation;
     geometry_msgs::Pose pose_msg;
     ofstream f_orb_pose;
@@ -105,19 +111,34 @@ int main(int argc, char **argv)
 ros::init(argc, argv, "RGBD");
 ros::start();
 
+//==========================
+bool rosrun = false;
+
+int argv_ind;
+if (rosrun){
+argv_ind = 2;
+
+}
+else{
+argv_ind = 1;
+}
+//==========================
+
 bool mapInitiation = false;
 bool saveMapfile = true;
 
 //Check settings file
-cv::FileStorage fsSettings(argv[2], cv::FileStorage::READ);
+std::cout<<"file name: "<< (string)argv[argv_ind]<<std::endl;
+cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
 if(!fsSettings.isOpened())
 {
-   cerr << "Failed to open settings file at: " << argv[2] << endl;
+   cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
    exit(-1);
 }
 
-cv::FileNode loadmapfilen = fsSettings["Map.loadmapfile"];
+cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
 string loadmapfile = (string)loadmapfilen;
+std::cout<<"loadmapfile: "<<loadmapfile<<std::endl;
 std::ifstream in(loadmapfile, std::ios_base::binary);
 
 if (!in){
@@ -127,11 +148,66 @@ mapInitiation = true;
 //amcl callback register
 }
 
+cv:: FileNode vocfilen = fsSettings["Map.OrbVoc"];
+string vocfile = (string)vocfilen;
 
+//std::map<std::string, std::string> map;
+//ros::NodeHandle private_nh;
+//private_nh.getParam(private_nh("~"), map);
 
-ORB_SLAM2::System mainSLAM(argv[1], argv[2], ORB_SLAM2::System::RGBD, true, saveMapfile);
+//ros::NodeHandle nh;
+//string vocfile;
+//std::vector<string> node_names_;
+//XmlRpc::XmlRpcValue v;
+//nh.param("ORB", v,v);
+//
+//for(int i =0; i<v.size(); i++)
+//{
+//    node_names_.push_back(v[i]);
+//    std::cerr<<"node_names: "<< node_names_[i]<<std::endl;
+//}
+
+std::map<std::string, std::string> map;
+ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], map, ORB_SLAM2::System::RGBD, true, saveMapfile);
 ImageGrabber igb(&mainSLAM, mapInitiation);
 igb.Initialize();
+
+//mapInitiation=false;
+//if(!mapInitiation)
+//{
+//    Py_Initialize();
+//    PyObject *pName, *pModule, *pDict, *pFunc, *pArgs, *pValue;
+//    // Convert the file name to a Python string.
+//    pName = PyString_FromString("orb_map_calibration.py");
+//    if (pName==NULL)
+//     printf("file not found");
+//    else
+//    printf("%s\n", PyString_AsString(pName));
+//    // Import the file as a Python module.
+//    pModule = PyImport_Import(pName);         //PROBLEM LINE
+//    if(pModule==NULL)
+//     printf("no Module\n");
+//    // Create a dictionary for the contents of the module.
+//    pDict = PyModule_GetDict(pModule);
+//    printf("After Dictionary retrieval\n");
+//    // Get the add method from the dictionary.
+//    pFunc = PyDict_GetItemString(pDict, "square");
+//    printf("after function retrieval\n");
+//
+//    // Convert 2 to a Python integer.
+//    pValue = PyInt_FromLong(2);
+//    // Call the function with the arguments.
+//    PyObject* pResult = PyObject_CallObject(pFunc, pValue);
+//    // Print a message if calling the method failed.
+//    if(pResult == NULL)
+//    printf("Calling the add method failed.\n");
+//    // Convert the result to a long from a Python object.
+//    long result = PyInt_AsLong(pResult);
+//    // Destroy the Python interpreter.
+//    Py_Finalize();
+//    // Print the result.
+//    printf("The result is %d.\n", result);
+//}
 
 }
 
