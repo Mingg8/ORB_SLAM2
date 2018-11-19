@@ -40,12 +40,14 @@ endif()
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(Pangolin REQUIRED)
+find_package(PythonLibs REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/../../../
 ${PROJECT_SOURCE_DIR}/../../../include
 ${Pangolin_INCLUDE_DIRS}
+${PYTHON_INCLUDE_DIRS}
 )
 
 set(LIBS 
@@ -57,6 +59,7 @@ ${PROJECT_SOURCE_DIR}/../../../Thirdparty/g2o/lib/libg2o.so
 ${PROJECT_SOURCE_DIR}/../../../lib/libORB_SLAM2.so
 -lboost_system
 )
+
 
 # Node for monocular camera
 rosbuild_add_executable(Mono
@@ -94,5 +97,6 @@ src/ros_rgbd.cc
 
 target_link_libraries(RGBD
 ${LIBS}
+${PYTHON_LIBRARIES}
 )
 

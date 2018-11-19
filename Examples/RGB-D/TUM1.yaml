@@ -60,7 +60,7 @@ ORBextractor.minThFAST: 7
 Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1
 Viewer.GraphLineWidth: 0.9
-Viewer.PointSize:2
+Viewer.PointSize: 2
 Viewer.CameraSize: 0.08
 Viewer.CameraLineWidth: 3
 Viewer.ViewpointX: 0
@@ -69,4 +69,6 @@ Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
 
 Map.loadMapfile: map_9F_pennybot.bin
-# Map.saveMapfile: saveMap.bin
+Map.saveMapfile: saveMap.bin
+
+Map.OrbVoc: /home/mjlee/ws/src/external_ros/ORB_SLAM2/Vocabulary/ORBvoc.bin

@@ -38,10 +38,9 @@ static bool has_suffix(const std::string &str, const std::string &suffix)
 
 namespace ORB_SLAM2
 {
-
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
-               const bool bUseViewer, bool is_save_map_):mSensor(sensor), is_save_map(is_save_map_), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),
-        mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
+System::System(const string &strVocFile, const string &strSettingsFile, const std::map<std::string, std::string> _map, const eSensor sensor,
+       const bool bUseViewer, bool is_save_map_):mSensor(sensor), is_save_map(is_save_map_), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),
+mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
     cout << endl <<
@@ -49,8 +48,6 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
     "This is free software, and you are welcome to redistribute it" << endl <<
     "under certain conditions. See LICENSE.txt." << endl << endl;
-
-    cout<<"DDEBUG  -  is_save_map" <<is_save_map<<endl;
 
     cout << "Input sensor was set to: ";
 
@@ -76,16 +73,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     time(&rawtime);
     timeinfo = localtime(&rawtime);
 
-    savemapfile = "map.bin";
+    cv::FileNode savemapfilen = fsSettings["Map.saveMapfile"];
 
     bool bReuseMap = false;
-    if (!loadmapfilen.empty())
+    if (!loadmapfilen.empty() && !savemapfilen.empty())
     {
         loadmapfile = (string)loadmapfilen;
+        savemapfile = (string)savemapfilen;
     }
 
     //Load ORB Vocabulary
-    cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
+    cout << endl << "Loading ORB Vocabulary. This could take a while..." << strVocFile << endl;
 
     mpVocabulary = new ORBVocabulary();
     bool bVocLoad = false; // chose loading method based on file extension
