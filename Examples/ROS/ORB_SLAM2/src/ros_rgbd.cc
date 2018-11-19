@@ -81,14 +81,10 @@ void ImageGrabber::Initialize()
 
     if (mapInitiation){
         ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
+        f_orb_pose.open("orb_pose_output.txt");
+        f_amcl_pose.open("amcl_pose_output.txt");
         //amcl, orb vector initialize
     }
-
-
-    //FOR DEBUGGING
-    f_orb_pose.open("orb_pose_output.txt");
-    f_amcl_pose.open("amcl_pose_output.txt");
-
     ros::spin();
 
     SLAM->Shutdown();
@@ -105,23 +101,6 @@ void ImageGrabber::amclCallback(const geometry_msgs::PoseWithCovarianceStamped& 
         <<amcl_pose.pose.pose.orientation.z << " "<<amcl_pose.pose.pose.orientation.w << endl;
 
 }
-
-
-
-void calibration()
-{
-PyObject* calibration = PyImport_ImportModule("orb_map_calibration");
-    if(calibration)
-    {
-        PyObject* mapCalibration=PyObject_CallFunction(calibration, NULL);
-        if (mapCalibration == Py_None){
-            printf("None is returned.\n");
-            Py_XDECREF(mapCalibration);
-        }
-        Py_XDECREF(calibration);
-    }
-}
-
 
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
@@ -190,6 +169,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     pose_msg.orientation.w=transform.getRotation().w();
 
     pose_pub.publish(pose_msg);
+    //TODO: static transform pose_msg (calibration)
     f_orb_pose << fixed;
     f_orb_pose << setprecision(6) << cv_ptrRGB->header.stamp.toSec() << setprecision(7) <<" "<< pose_msg.position.x << " "<< pose_msg.position.y << " "<< pose_msg.position.z << " "<<pose_msg.orientation.x<<" "<<pose_msg.orientation.y <<" " <<pose_msg.orientation.z << " "<<pose_msg.orientation.w <<endl;
 
@@ -200,18 +180,7 @@ int main(int argc, char **argv)
 ros::init(argc, argv, "RGBD");
 ros::start();
 
-//==========================
-bool rosrun = true;
-
-int argv_ind;
-if (rosrun){
-argv_ind = 2;
-
-}
-else{
-argv_ind = 1;
-}
-//==========================
+int argv_ind = 2;
 
 bool mapInitiation = false;
 bool saveMapfile = true;
@@ -225,22 +194,25 @@ if(!fsSettings.isOpened())
    exit(-1);
 }
 
+//TODO: Load setting file as vector(?) from yaml file or use absolute path
+//TODO: Code Refactoring
+
 cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
 string loadmapfile = (string)loadmapfilen;
 std::cout<<"loadmapfile: "<<loadmapfile<<std::endl;
 std::ifstream in(loadmapfile, std::ios_base::binary);
+cv::FileStorage calib_fs("data.xml", cv::FileStorage::READ);
 
-if (!in){
-cerr << "Cannot Open Mapfile: " << loadmapfile << " , You need create it first" << std::endl;
+
+//If calibration matrix or map file doesn't exist, initiate map
+if (!in || !calib_fs.isOpened()){
 mapInitiation = true;
-
-//amcl callback register
 }
 
-cv::FileStorage calib_fs("data.xml", cv::FileStorage::READ);
-if(!calib_fs.isOpened()){
-    std::cout<< "Calibration file does not exist" << std::endl;
-    mapInitiation = true;
+if (mapInitiation){
+//TODO: save orb pose and amcl pose
+//TODO: amcl callback register
+//TODO: Send amcl, orb pose vector as an variable to python file
 }
 else{
     std::cout << "Load calibration file" <<std::endl;
@@ -251,28 +223,13 @@ else{
 cv:: FileNode vocfilen = fsSettings["Map.OrbVoc"];
 string vocfile = (string)vocfilen;
 
-//std::map<std::string, std::string> map;
-//ros::NodeHandle private_nh;
-//private_nh.getParam(private_nh("~"), map);
-
-//ros::NodeHandle nh;
-//string vocfile;
-//std::vector<string> node_names_;
-//XmlRpc::XmlRpcValue v;
-//nh.param("ORB", v,v);
-//
-//for(int i =0; i<v.size(); i++)
-//{
-//    node_names_.push_back(v[i]);
-//    std::cerr<<"node_names: "<< node_names_[i]<<std::endl;
-//}
 saveMapfile = false;
 std::map<std::string, std::string> map;
 ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], map, ORB_SLAM2::System::RGBD, true, saveMapfile);
 ImageGrabber igb(&mainSLAM, mapInitiation);
 igb.Initialize();
 
-mapInitiation=false;
+//Calculate calibration matrix from orb_pose and amcl_pose
 if(!mapInitiation)
 {
     std::cout<<"please run orb :(:(" <<std::endl;
@@ -285,5 +242,4 @@ if(!mapInitiation)
     else
         std::cout << "file not loaded" << std::endl;
 }
-
 }
