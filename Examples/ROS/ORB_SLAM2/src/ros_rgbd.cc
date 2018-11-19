@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <python2.7/Python.h>
+#include <opencv2/opencv.hpp>
 
 
 #include"../../../../include/System.h"
@@ -63,7 +64,7 @@ public:
     message_filters::Subscriber<sensor_msgs::Image>* depth_sub;
     message_filters::Synchronizer<sync_pol>* sync;
 
-    std::vector<geometry_msgs::PoseWithCovarianceStamped> amcl_vec;
+//    std::vector<geometry_msgs::PoseWithCovarianceStamped> amcl_vec;
 
 
 };
@@ -106,109 +107,19 @@ void ImageGrabber::amclCallback(const geometry_msgs::PoseWithCovarianceStamped& 
 }
 
 
-int main(int argc, char **argv)
+
+void calibration()
 {
-ros::init(argc, argv, "RGBD");
-ros::start();
-
-//==========================
-bool rosrun = false;
-
-int argv_ind;
-if (rosrun){
-argv_ind = 2;
-
-}
-else{
-argv_ind = 1;
-}
-//==========================
-
-bool mapInitiation = false;
-bool saveMapfile = true;
-
-//Check settings file
-std::cout<<"file name: "<< (string)argv[argv_ind]<<std::endl;
-cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
-if(!fsSettings.isOpened())
-{
-   cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
-   exit(-1);
-}
-
-cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
-string loadmapfile = (string)loadmapfilen;
-std::cout<<"loadmapfile: "<<loadmapfile<<std::endl;
-std::ifstream in(loadmapfile, std::ios_base::binary);
-
-if (!in){
-cerr << "Cannot Open Mapfile: " << loadmapfile << " , You need create it first" << std::endl;
-mapInitiation = true;
-
-//amcl callback register
-}
-
-cv:: FileNode vocfilen = fsSettings["Map.OrbVoc"];
-string vocfile = (string)vocfilen;
-
-//std::map<std::string, std::string> map;
-//ros::NodeHandle private_nh;
-//private_nh.getParam(private_nh("~"), map);
-
-//ros::NodeHandle nh;
-//string vocfile;
-//std::vector<string> node_names_;
-//XmlRpc::XmlRpcValue v;
-//nh.param("ORB", v,v);
-//
-//for(int i =0; i<v.size(); i++)
-//{
-//    node_names_.push_back(v[i]);
-//    std::cerr<<"node_names: "<< node_names_[i]<<std::endl;
-//}
-
-std::map<std::string, std::string> map;
-ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], map, ORB_SLAM2::System::RGBD, true, saveMapfile);
-ImageGrabber igb(&mainSLAM, mapInitiation);
-igb.Initialize();
-
-//mapInitiation=false;
-//if(!mapInitiation)
-//{
-//    Py_Initialize();
-//    PyObject *pName, *pModule, *pDict, *pFunc, *pArgs, *pValue;
-//    // Convert the file name to a Python string.
-//    pName = PyString_FromString("orb_map_calibration.py");
-//    if (pName==NULL)
-//     printf("file not found");
-//    else
-//    printf("%s\n", PyString_AsString(pName));
-//    // Import the file as a Python module.
-//    pModule = PyImport_Import(pName);         //PROBLEM LINE
-//    if(pModule==NULL)
-//     printf("no Module\n");
-//    // Create a dictionary for the contents of the module.
-//    pDict = PyModule_GetDict(pModule);
-//    printf("After Dictionary retrieval\n");
-//    // Get the add method from the dictionary.
-//    pFunc = PyDict_GetItemString(pDict, "square");
-//    printf("after function retrieval\n");
-//
-//    // Convert 2 to a Python integer.
-//    pValue = PyInt_FromLong(2);
-//    // Call the function with the arguments.
-//    PyObject* pResult = PyObject_CallObject(pFunc, pValue);
-//    // Print a message if calling the method failed.
-//    if(pResult == NULL)
-//    printf("Calling the add method failed.\n");
-//    // Convert the result to a long from a Python object.
-//    long result = PyInt_AsLong(pResult);
-//    // Destroy the Python interpreter.
-//    Py_Finalize();
-//    // Print the result.
-//    printf("The result is %d.\n", result);
-//}
-
+PyObject* calibration = PyImport_ImportModule("orb_map_calibration");
+    if(calibration)
+    {
+        PyObject* mapCalibration=PyObject_CallFunction(calibration, NULL);
+        if (mapCalibration == Py_None){
+            printf("None is returned.\n");
+            Py_XDECREF(mapCalibration);
+        }
+        Py_XDECREF(calibration);
+    }
 }
 
 
@@ -281,5 +192,98 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     pose_pub.publish(pose_msg);
     f_orb_pose << fixed;
     f_orb_pose << setprecision(6) << cv_ptrRGB->header.stamp.toSec() << setprecision(7) <<" "<< pose_msg.position.x << " "<< pose_msg.position.y << " "<< pose_msg.position.z << " "<<pose_msg.orientation.x<<" "<<pose_msg.orientation.y <<" " <<pose_msg.orientation.z << " "<<pose_msg.orientation.w <<endl;
+
+}
+
+int main(int argc, char **argv)
+{
+ros::init(argc, argv, "RGBD");
+ros::start();
+
+//==========================
+bool rosrun = true;
+
+int argv_ind;
+if (rosrun){
+argv_ind = 2;
+
+}
+else{
+argv_ind = 1;
+}
+//==========================
+
+bool mapInitiation = false;
+bool saveMapfile = true;
+
+//Check settings file
+std::cout<<"file name: "<< (string)argv[argv_ind]<<std::endl;
+cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
+if(!fsSettings.isOpened())
+{
+   cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
+   exit(-1);
+}
+
+cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
+string loadmapfile = (string)loadmapfilen;
+std::cout<<"loadmapfile: "<<loadmapfile<<std::endl;
+std::ifstream in(loadmapfile, std::ios_base::binary);
+
+if (!in){
+cerr << "Cannot Open Mapfile: " << loadmapfile << " , You need create it first" << std::endl;
+mapInitiation = true;
+
+//amcl callback register
+}
+
+cv::FileStorage calib_fs("data.xml", cv::FileStorage::READ);
+if(!calib_fs.isOpened()){
+    std::cout<< "Calibration file does not exist" << std::endl;
+    mapInitiation = true;
+}
+else{
+    std::cout << "Load calibration file" <<std::endl;
+    cv::Mat mtx;
+    calib_fs["data"] >> mtx;
+}
+
+cv:: FileNode vocfilen = fsSettings["Map.OrbVoc"];
+string vocfile = (string)vocfilen;
+
+//std::map<std::string, std::string> map;
+//ros::NodeHandle private_nh;
+//private_nh.getParam(private_nh("~"), map);
+
+//ros::NodeHandle nh;
+//string vocfile;
+//std::vector<string> node_names_;
+//XmlRpc::XmlRpcValue v;
+//nh.param("ORB", v,v);
+//
+//for(int i =0; i<v.size(); i++)
+//{
+//    node_names_.push_back(v[i]);
+//    std::cerr<<"node_names: "<< node_names_[i]<<std::endl;
+//}
+saveMapfile = false;
+std::map<std::string, std::string> map;
+ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], map, ORB_SLAM2::System::RGBD, true, saveMapfile);
+ImageGrabber igb(&mainSLAM, mapInitiation);
+igb.Initialize();
+
+mapInitiation=false;
+if(!mapInitiation)
+{
+    std::cout<<"please run orb :(:(" <<std::endl;
+    FILE *fd = fopen("/home/mjlee/repositories/external_ros/ORB_SLAM2/Examples/ROS/ORB_SLAM2/src/orb_map_calibration.py", "r");
+    Py_Initialize();
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("sys.path.append(\"/opt/ros/kinetic/lib/python2.7/dist-packages\")");
+    if(fd)
+        PyRun_SimpleFileEx(fd, "/home/mjlee/repositories/external_ros/ORB_SLAM2/Examples/ROS/ORB_SLAM2/src/orb_map_calibration.py", 1);
+    else
+        std::cout << "file not loaded" << std::endl;
+}
 
 }
