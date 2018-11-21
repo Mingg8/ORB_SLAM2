@@ -37,16 +37,19 @@
 #include <time.h>
 #include <python2.7/Python.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
+#include <Eigen/Dense>
 
 
 #include"../../../../include/System.h"
 using namespace std;
+using namespace Eigen;
 typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
 
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _mapInitiation):SLAM(_SLAM), mapInitiation(_mapInitiation){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _mapInitiation, cv::Mat _mtx):SLAM(_SLAM), mapInitiation(_mapInitiation), calibMtx(_mtx){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
     void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose);
     void Initialize();
@@ -54,6 +57,7 @@ public:
     ORB_SLAM2::System* SLAM ;
     ros::NodeHandle private_nh;
     bool mapInitiation;
+    cv::Mat calibMtx;
     geometry_msgs::Pose pose_msg;
     ofstream f_orb_pose;
     ofstream f_amcl_pose;
@@ -64,7 +68,7 @@ public:
     message_filters::Subscriber<sensor_msgs::Image>* depth_sub;
     message_filters::Synchronizer<sync_pol>* sync;
 
-//    std::vector<geometry_msgs::PoseWithCovarianceStamped> amcl_vec;
+//    vector<geometry_msgs::PoseWithCovarianceStamped> amcl_vec;
 
 
 };
@@ -96,6 +100,7 @@ void ImageGrabber::Initialize()
 void ImageGrabber::amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose)
 {
 //    amcl_vec.push_back(amcl_pose);
+    Map<Matrix4f> eigenT(calibMtx);
     f_amcl_pose << setprecision(6) << amcl_pose.header.stamp << setprecision(7) << " " << amcl_pose.pose.pose.position.x << " "<< amcl_pose.pose.pose.position.y
         << " "<< amcl_pose.pose.pose.position.z << " " <<amcl_pose.pose.pose.orientation.x<<" "<<amcl_pose.pose.pose.orientation.y <<" "
         <<amcl_pose.pose.pose.orientation.z << " "<<amcl_pose.pose.pose.orientation.w << endl;
@@ -168,10 +173,17 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     pose_msg.orientation.z=transform.getRotation().z();
     pose_msg.orientation.w=transform.getRotation().w();
 
-    pose_pub.publish(pose_msg);
-    //TODO: static transform pose_msg (calibration)
-    f_orb_pose << fixed;
-    f_orb_pose << setprecision(6) << cv_ptrRGB->header.stamp.toSec() << setprecision(7) <<" "<< pose_msg.position.x << " "<< pose_msg.position.y << " "<< pose_msg.position.z << " "<<pose_msg.orientation.x<<" "<<pose_msg.orientation.y <<" " <<pose_msg.orientation.z << " "<<pose_msg.orientation.w <<endl;
+    //TODO: static transform(mtx) pose_msg (calibration)
+    if(mapInitiation){
+        f_orb_pose << fixed;
+        f_orb_pose << setprecision(6) << cv_ptrRGB->header.stamp.toSec() << setprecision(7) <<" "<< pose_msg.position.x << " "<< pose_msg.position.y << " "<< pose_msg.position.z << " "<<pose_msg.orientation.x<<" "<<pose_msg.orientation.y <<" " <<pose_msg.orientation.z << " "<<pose_msg.orientation.w <<endl;
+    }
+    else
+    {
+//        Eigen::Matrix* dst;
+//        cv::cv2eigen(calibMtx, &dst);
+        pose_pub.publish(pose_msg);
+    }
 
 }
 
@@ -186,7 +198,7 @@ bool mapInitiation = false;
 bool saveMapfile = true;
 
 //Check settings file
-std::cout<<"file name: "<< (string)argv[argv_ind]<<std::endl;
+cout<<"file name: "<< (string)argv[argv_ind]<<endl;
 cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
 if(!fsSettings.isOpened())
 {
@@ -199,8 +211,8 @@ if(!fsSettings.isOpened())
 
 cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
 string loadmapfile = (string)loadmapfilen;
-std::cout<<"loadmapfile: "<<loadmapfile<<std::endl;
-std::ifstream in(loadmapfile, std::ios_base::binary);
+cout<<"loadmapfile: "<<loadmapfile<<endl;
+ifstream in(loadmapfile, ios_base::binary);
 cv::FileStorage calib_fs("data.xml", cv::FileStorage::READ);
 
 
@@ -209,14 +221,12 @@ if (!in || !calib_fs.isOpened()){
 mapInitiation = true;
 }
 
+cv::Mat mtx;
 if (mapInitiation){
-//TODO: save orb pose and amcl pose
-//TODO: amcl callback register
 //TODO: Send amcl, orb pose vector as an variable to python file
 }
 else{
-    std::cout << "Load calibration file" <<std::endl;
-    cv::Mat mtx;
+    cout << "Load calibration file" <<endl;
     calib_fs["data"] >> mtx;
 }
 
@@ -224,15 +234,15 @@ cv:: FileNode vocfilen = fsSettings["Map.OrbVoc"];
 string vocfile = (string)vocfilen;
 
 saveMapfile = false;
-std::map<std::string, std::string> map;
+map<string, string> map;
 ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], map, ORB_SLAM2::System::RGBD, true, saveMapfile);
-ImageGrabber igb(&mainSLAM, mapInitiation);
+ImageGrabber igb(&mainSLAM, mapInitiation, mtx);
 igb.Initialize();
 
 //Calculate calibration matrix from orb_pose and amcl_pose
 if(!mapInitiation)
 {
-    std::cout<<"please run orb :(:(" <<std::endl;
+    cout<<"please run orb :(:(" <<endl;
     FILE *fd = fopen("/home/mjlee/repositories/external_ros/ORB_SLAM2/Examples/ROS/ORB_SLAM2/src/orb_map_calibration.py", "r");
     Py_Initialize();
     PyRun_SimpleString("import sys");
@@ -240,6 +250,6 @@ if(!mapInitiation)
     if(fd)
         PyRun_SimpleFileEx(fd, "/home/mjlee/repositories/external_ros/ORB_SLAM2/Examples/ROS/ORB_SLAM2/src/orb_map_calibration.py", 1);
     else
-        std::cout << "file not loaded" << std::endl;
+        cout << "file not loaded" << endl;
 }
 }
