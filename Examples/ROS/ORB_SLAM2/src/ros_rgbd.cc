@@ -70,6 +70,9 @@ public:
     cv::Mat calibMtx;
     geometry_msgs::Pose pose_msg;
 
+    string RGBTopic, depthTopic, robotPoseTopic, camPoseTopic;
+
+
     int image_grab_count = 0;
 
     ros::NodeHandle nh;
@@ -82,7 +85,7 @@ public:
 
 void ImageGrabber::Initialize()
 {
-    pose_pub = nh.advertise<geometry_msgs::Pose>(robot_pose_topic, 30);
+    pose_pub = nh.advertise<geometry_msgs::Pose>(robotPoseTopic, 30);
     rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, RGBTopic, 1);
     depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, depthTopic, 1);
 
@@ -245,6 +248,7 @@ int main(int argc, char **argv)
     //TODO: Code Refactoring
 
     cv::FileNode _loadmapfile = fsSettings["Map.loadMapfile"];
+    cv:: FileNode _vocfile = fsSettings["Camera.OrbVoc"];
     cv::FileNode _calibfile = fsSettings["Camera.CalibMtx"];
     cv::FileNode _itr_num = fsSettings["RANSAC.IterNum"];
     cv::FileNode _thresh = fsSettings["RANSAC.Thresh"];
@@ -255,6 +259,7 @@ int main(int argc, char **argv)
     cv::FileNode _camera_depth_topic = fsSettings["ROS.CameraDepthTopic"];
 
     string loadmapfile = (string)_loadmapfile;
+    string vocfile = (string)_vocfile;
     string calibfile = (string)_calibfile;
     int itr_num = (int)_itr_num;
     float thresh = (float)_thresh;
@@ -268,7 +273,7 @@ int main(int argc, char **argv)
 
     //If calibration matrix or map file doesn't exist, initiate map
     ifstream in(loadmapfile, ios_base::binary);
-    cv::FileStorage calib_fs(calibfilen, cv::FileStorage::READ);
+    cv::FileStorage calib_fs(_calibfile, cv::FileStorage::READ);
     if (!in.is_open() || !calib_fs.isOpened()){
     mapInitiation = true;
     }
@@ -283,12 +288,8 @@ int main(int argc, char **argv)
         cout << "Load calibration file" <<endl;
         calib_fs["data"] >> mtx;
     }
-
     cout<<"Map initialization: "<< mapInitiation <<endl;
-    cv:: FileNode vocfilen = fsSettings["Camera.OrbVoc"];
-    string vocfile = (string)vocfilen;
 
-    saveMapfile = false;
     ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], ORB_SLAM2::System::RGBD, true, saveMapfile);
     ImageGrabber igb(&mainSLAM, mapInitiation, mtx, camera_rgb_topic, camera_depth_topic, robot_pose_topic, camera_pose_topic);
     igb.Initialize();

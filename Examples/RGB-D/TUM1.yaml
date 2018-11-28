@@ -68,7 +68,12 @@ Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
 
-Map.loadMapfile: map_9F_pennybot.bin
+Map.loadMapfile: /home/mjlee/ws/src/external_ros/ORB_SLAM2/loadMap.bin
 Map.saveMapfile: saveMap.bin
 
-Map.OrbVoc: /home/mjlee/ws/src/external_ros/ORB_SLAM2/Vocabulary/ORBvoc.bin
+Camera.OrbVoc: /home/mjlee/ws/src/external_ros/ORB_SLAM2/Vocabulary/ORBvoc.bin
+Camera.CalibMtx: /home/mjlee/ws/src/external_ros/ORB_SLAM2/data.xml
+
+RANSAC.IterNum: 300
+RANSAC.Thresh: 0.1
+RANSAC.TimeInterval: 1
