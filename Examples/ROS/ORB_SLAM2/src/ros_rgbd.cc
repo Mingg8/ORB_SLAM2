@@ -53,8 +53,8 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _mapInitiation, cv::Mat _mtx, string _RGBTopic, string _depthTopic, string _robotPoseTopic, string _camPoseTopic)
-                :SLAM(_SLAM), mapInitiation(_mapInitiation), calibMtx(_mtx), RGBTopic(_RGBTopic), depthTopic(_depthTopic), robotPoseTopic(_robotPoseTopic), camPoseTopic(_camPoseTopic){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM, const bool mapInitiation, const cv::Mat mtx, const string RGBTopic, const string depthTopic, 
+                const string robotPoseTopic, const string camPoseTopic):SLAM(_SLAM){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
     std::vector<std::vector<float>> amcl_poses;

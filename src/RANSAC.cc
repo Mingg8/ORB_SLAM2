@@ -18,8 +18,8 @@ using namespace Eigen;
 
 namespace ORB_SLAM2
 {
-    RANSAC::RANSAC(std::vector<std::vector<float>>& _orb_poses, std::vector<std::vector<float>>& _amcl_poses, int _rsc_itr_num, float _rsc_thres, float _time_interval)
-                : raw_orb_poses(_orb_poses), raw_amcl_poses(_amcl_poses), rsc_itr_num(_rsc_itr_num), rsc_thresh(_rsc_thres), time_interval(_time_interval){
+    RANSAC::RANSAC(std::vector<std::vector<float>>& _orb_poses, std::vector<std::vector<float>>& _amcl_poses, int rsc_itr_num, float rsc_thres, float time_interval)
+                : raw_orb_poses(_orb_poses), raw_amcl_poses(_amcl_poses){
         load_data(raw_orb_poses, raw_amcl_poses);
         fitting();
     }
