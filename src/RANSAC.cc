@@ -18,10 +18,8 @@ using namespace Eigen;
 
 namespace ORB_SLAM2
 {
-    RANSAC::RANSAC(std::vector<std::vector<float>>& _orb_poses, std::vector<std::vector<float>>& _amcl_poses): raw_orb_poses(_orb_poses), raw_amcl_poses(_amcl_poses){
-        rsc_itr_num = 300;
-        rsc_thresh = 1;
-        time_interval = 10;
+    RANSAC::RANSAC(std::vector<std::vector<float>>& _orb_poses, std::vector<std::vector<float>>& _amcl_poses, int _rsc_itr_num, float _rsc_thres, float _time_interval)
+                : raw_orb_poses(_orb_poses), raw_amcl_poses(_amcl_poses), rsc_itr_num(_rsc_itr_num), rsc_thresh(_rsc_thres), time_interval(_time_interval){
         load_data(raw_orb_poses, raw_amcl_poses);
         fitting();
     }
@@ -38,7 +36,7 @@ namespace ORB_SLAM2
 
         if(idx_1 <raw_poses_1.size()){
             for(int idx_2=0; idx_2< raw_poses_2.size(); idx_2++){
-                // std::vector<float>pose_2 = raw_poses_2.at(idx_2);
+                std::vector<float>pose_2 = raw_poses_2.at(idx_2);
                 float time_diff = pose_2.at(0) - (raw_poses_1.at(idx_1)).at(0);
 
                 //find most similar time stamp of each orb_pose

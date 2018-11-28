@@ -53,11 +53,13 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _mapInitiation, cv::Mat _mtx):SLAM(_SLAM), mapInitiation(_mapInitiation), calibMtx(_mtx){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM, bool _mapInitiation, cv::Mat _mtx, string _RGBTopic, string _depthTopic, string _robotPoseTopic, string _camPoseTopic)
+                :SLAM(_SLAM), mapInitiation(_mapInitiation), calibMtx(_mtx), RGBTopic(_RGBTopic), depthTopic(_depthTopic), robotPoseTopic(_robotPoseTopic), camPoseTopic(_camPoseTopic){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
     std::vector<std::vector<float>> amcl_poses;
     std::vector<std::vector<float>> orb_poses;
+
     void amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose);
 
     void Initialize();
@@ -67,8 +69,6 @@ public:
     bool mapInitiation;
     cv::Mat calibMtx;
     geometry_msgs::Pose pose_msg;
-//    ofstream f_orb_pose;
-//    ofstream f_amcl_pose;
 
     int image_grab_count = 0;
 
@@ -77,57 +77,43 @@ public:
     message_filters::Subscriber<sensor_msgs::Image>* rgb_sub;
     message_filters::Subscriber<sensor_msgs::Image>* depth_sub;
     message_filters::Synchronizer<sync_pol>* sync;
-
-//    vector<geometry_msgs::PoseWithCovarianceStamped> amcl_vec;
 };
 
 
 void ImageGrabber::Initialize()
 {
-    pose_pub = nh.advertise<geometry_msgs::Pose>("/orb_pose", 30);
-    rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "/astra/rgb/image_raw", 1);
-    depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, "astra/depth/image_raw", 1);
+    pose_pub = nh.advertise<geometry_msgs::Pose>(robot_pose_topic, 30);
+    rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, RGBTopic, 1);
+    depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, depthTopic, 1);
 
     sync = new message_filters::Synchronizer<sync_pol>(sync_pol(10), *rgb_sub, *depth_sub);
     sync->registerCallback(boost::bind(&ImageGrabber::GrabRGBD, this, _1, _2));
 
-    ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
-    if (mapInitiation){
-//        ros::Subscriber amcl_sub = nh.subscribe("/amcl_pose", 1000, &ImageGrabber::amclCallback, this);
-//        f_orb_pose.open("/home/mjlee/ws/src/external_ros/ORB_SLAM2/orb_pose_output.txt");
-//        f_amcl_pose.open("/home/mjlee/ws/src/external_ros/ORB_SLAM2/amcl_pose_output.txt");
-        //amcl, orb vector initialize
-    }
-
+    ros::Subscriber amcl_sub = nh.subscribe(robotPoseTopic, 1000, &ImageGrabber::amclCallback, this);
     ros::spin();
 
     SLAM->Shutdown();
     SLAM->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
-//    f_orb_pose.close();
-//    f_amcl_pose.close();
 
     return ;
 }
 
 void ImageGrabber::amclCallback(const geometry_msgs::PoseWithCovarianceStamped& amcl_pose)
 {
-    std::vector<float> amcl_vec;
-    amcl_vec.push_back(amcl_pose.header.stamp.toSec());
-    amcl_vec.push_back(amcl_pose.pose.pose.position.x);
-    amcl_vec.push_back(amcl_pose.pose.pose.position.y);
-    amcl_vec.push_back(amcl_pose.pose.pose.position.z);
+    if(mapInitiation){
+        std::vector<float> amcl_vec;
+        amcl_vec.push_back(amcl_pose.header.stamp.toSec());
+        amcl_vec.push_back(amcl_pose.pose.pose.position.x);
+        amcl_vec.push_back(amcl_pose.pose.pose.position.y);
+        amcl_vec.push_back(amcl_pose.pose.pose.position.z);
 
-    amcl_vec.push_back(amcl_pose.pose.pose.orientation.x);
-    amcl_vec.push_back(amcl_pose.pose.pose.orientation.y);
-    amcl_vec.push_back(amcl_pose.pose.pose.orientation.z);
-    amcl_vec.push_back(amcl_pose.pose.pose.orientation.w);
+        amcl_vec.push_back(amcl_pose.pose.pose.orientation.x);
+        amcl_vec.push_back(amcl_pose.pose.pose.orientation.y);
+        amcl_vec.push_back(amcl_pose.pose.pose.orientation.z);
+        amcl_vec.push_back(amcl_pose.pose.pose.orientation.w);
 
-    amcl_poses.push_back(amcl_vec);
-
-//    f_amcl_pose << setprecision(6) << amcl_pose.header.stamp << setprecision(7) << " " << amcl_pose.pose.pose.position.x << " "<< amcl_pose.pose.pose.position.y
-//        << " "<< amcl_pose.pose.pose.position.z << " " <<amcl_pose.pose.pose.orientation.x<<" "<<amcl_pose.pose.pose.orientation.y <<" "
-//        <<amcl_pose.pose.pose.orientation.z << " "<<amcl_pose.pose.pose.orientation.w << endl;
-
+        amcl_poses.push_back(amcl_vec);
+    }
 }
 
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
@@ -228,10 +214,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         orb_pose.push_back(pose_msg.orientation.y);
         orb_pose.push_back(pose_msg.orientation.z);
         orb_pose.push_back(pose_msg.orientation.w);
-
         orb_poses.push_back(orb_pose);
-//        f_orb_pose << fixed;
-//        f_orb_pose << setprecision(6) << cv_ptrRGB->header.stamp.toSec() << setprecision(7) <<" "<< pose_msg.position.x << " "<< pose_msg.position.y << " "<< pose_msg.position.z << " "<<pose_msg.orientation.x<<" "<<pose_msg.orientation.y <<" " <<pose_msg.orientation.z << " "<<pose_msg.orientation.w <<endl;
     }
     else
         pose_pub.publish(pose_msg);
@@ -261,17 +244,31 @@ int main(int argc, char **argv)
     //TODO: Load setting file as vector(?) from yaml file or use absolute path
     //TODO: Code Refactoring
 
-    cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
-    string loadmapfile = (string)loadmapfilen;
+    cv::FileNode _loadmapfile = fsSettings["Map.loadMapfile"];
+    cv::FileNode _calibfile = fsSettings["Camera.CalibMtx"];
+    cv::FileNode _itr_num = fsSettings["RANSAC.IterNum"];
+    cv::FileNode _thresh = fsSettings["RANSAC.Thresh"];
+    cv::FileNode _time_interval = fsSettings["RANSAC.TimeInterval"];
+    cv::FileNode _camera_pose_topic = fsSettings["ROS.CameraPoseTopic"];
+    cv::FileNode _robot_pose_topic = fsSettings["ROS.RobotPoseTopic"];
+    cv::FileNode _camera_rgb_topic = fsSettings["ROS.CameraRGBTopic"];
+    cv::FileNode _camera_depth_topic = fsSettings["ROS.CameraDepthTopic"];
+
+    string loadmapfile = (string)_loadmapfile;
+    string calibfile = (string)_calibfile;
+    int itr_num = (int)_itr_num;
+    float thresh = (float)_thresh;
+    float time_interval = (float)_time_interval;
+    string camera_pose_topic = (string)_camera_pose_topic;
+    string robot_pose_topic = (string)_robot_pose_topic;
+    string camera_rgb_topic = (string)_camera_rgb_topic;
+    string camera_depth_topic = (string)_camera_depth_topic;
+
     cout<<"loadmapfile: "<<loadmapfile<<endl;
-    ifstream in(loadmapfile, ios_base::binary);
-
-    cv::FileNode calibfilen = fsSettings["Map.CalibMtx"];
-    string calibfile = (string)calibfilen;
-    cv::FileStorage calib_fs(calibfilen, cv::FileStorage::READ);
-
 
     //If calibration matrix or map file doesn't exist, initiate map
+    ifstream in(loadmapfile, ios_base::binary);
+    cv::FileStorage calib_fs(calibfilen, cv::FileStorage::READ);
     if (!in.is_open() || !calib_fs.isOpened()){
     mapInitiation = true;
     }
@@ -288,24 +285,23 @@ int main(int argc, char **argv)
     }
 
     cout<<"Map initialization: "<< mapInitiation <<endl;
-    cv:: FileNode vocfilen = fsSettings["Map.OrbVoc"];
+    cv:: FileNode vocfilen = fsSettings["Camera.OrbVoc"];
     string vocfile = (string)vocfilen;
 
     saveMapfile = false;
     ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], ORB_SLAM2::System::RGBD, true, saveMapfile);
-    ImageGrabber igb(&mainSLAM, mapInitiation, mtx);
+    ImageGrabber igb(&mainSLAM, mapInitiation, mtx, camera_rgb_topic, camera_depth_topic, robot_pose_topic, camera_pose_topic);
     igb.Initialize();
 
     //Calculate calibration matrix from orb_pose and amcl_pose
     if(mapInitiation)
     {
-        ORB_SLAM2::RANSAC rsc(igb.orb_poses, igb.amcl_poses);
+        ORB_SLAM2::RANSAC rsc(igb.orb_poses, igb.amcl_poses, itr_num, thresh, time_interval);
         Eigen::Matrix4f calib_mtx;
         rsc.getMtx(calib_mtx);
-//        &calib_mtx = rsc.getMtx();
         cv::Mat cv_mtx;
         cv::eigen2cv(calib_mtx, cv_mtx);
-        cv::FileStorage cv_file("/home/mjlee/ws/src/external_ros/ORB_SLAM2/data.xml", cv::FileStorage::WRITE);
+        cv::FileStorage cv_file(calibfile, cv::FileStorage::WRITE);
         cv::write(cv_file, "data", cv_mtx);
         cv_file.release();
     }

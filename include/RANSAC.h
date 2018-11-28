@@ -8,7 +8,7 @@ namespace ORB_SLAM2
 class RANSAC
 {
 public:
-    RANSAC(std::vector<std::vector<float>>&, std::vector<std::vector<float>>&);
+    RANSAC(std::vector<std::vector<float>>&, std::vector<std::vector<float>>&, int, float, float);
     void getMtx(Eigen::Matrix4f&);
 
 private:
