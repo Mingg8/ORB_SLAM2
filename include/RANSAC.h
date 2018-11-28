@@ -9,7 +9,7 @@ class RANSAC
 {
 public:
     RANSAC(std::vector<std::vector<float>>&, std::vector<std::vector<float>>&);
-    Eigen::Matrix4f* getMtx();
+    void getMtx(Eigen::Matrix4f&);
 
 private:
     std::vector<std::vector<float>> raw_orb_poses;
@@ -20,12 +20,13 @@ private:
     void fitting();
     float error(Eigen::Matrix4f&, Eigen::Matrix4f&, Eigen::Matrix4f&);
 
-    int itr_num;
-    int threshold;
+    int rsc_itr_num;
+    float rsc_thresh;
     float time_interval;
     int tf_compute_interval;
 
     void load_data(std::vector<std::vector<float>>&, std::vector<std::vector<float>>&);
+    void vec2mat(std::vector<float>&, Eigen::Matrix4f&);
 };
 }
 

@@ -296,16 +296,15 @@ int main(int argc, char **argv)
     ImageGrabber igb(&mainSLAM, mapInitiation, mtx);
     igb.Initialize();
 
-    cout<<"abcsdfef " <<endl;
     //Calculate calibration matrix from orb_pose and amcl_pose
     if(mapInitiation)
     {
-        cout << "map saveeee" <<endl;
         ORB_SLAM2::RANSAC rsc(igb.orb_poses, igb.amcl_poses);
-        Eigen::Matrix4f* calib_mtx = rsc.getMtx();
+        Eigen::Matrix4f calib_mtx;
+        rsc.getMtx(calib_mtx);
 //        &calib_mtx = rsc.getMtx();
         cv::Mat cv_mtx;
-        cv::eigen2cv(*calib_mtx, cv_mtx);
+        cv::eigen2cv(calib_mtx, cv_mtx);
         cv::FileStorage cv_file("/home/mjlee/ws/src/external_ros/ORB_SLAM2/data.xml", cv::FileStorage::WRITE);
         cv::write(cv_file, "data", cv_mtx);
         cv_file.release();
