@@ -21,7 +21,7 @@
 
 
 #include "System.h"
-#include "Converter.h"
+#include "Converter.h"`
 #include <thread>
 #include <pangolin/pangolin.h>
 #include <iomanip>
@@ -38,7 +38,7 @@ static bool has_suffix(const std::string &str, const std::string &suffix)
 
 namespace ORB_SLAM2
 {
-System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
+System::System(const string &strVocFile, const string &strSettingsFile, const CONFIG& cfg, const eSensor sensor,
        const bool bUseViewer, bool is_save_map_):mSensor(sensor), is_save_map(is_save_map_), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false),
 mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
 {
@@ -66,37 +66,45 @@ mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
        exit(-1);
     }
 
-    cv::FileNode loadmapfilen = fsSettings["Map.loadMapfile"];
+    // cv::FileNode loadmapfilen = fsSettings["Map_loadMapfile"];
+    std::ifstream in_loadmap((cfg.map_loadfile).c_str()); 
     time_t rawtime;
     struct tm * timeinfo;
     char buffer[25];
     time(&rawtime);
     timeinfo = localtime(&rawtime);
 
-    cv::FileNode savemapfilen = fsSettings["Map.saveMapfile"];
+    // cv::FileNode savemapfilen = fsSettings["Map_saveMapfile"];
+    std::ifstream in_savemap((cfg.map_savefile).c_str());
 
     bool bReuseMap = false;
-    if (!loadmapfilen.empty() && !savemapfilen.empty())
-    {
-        loadmapfile = (string)loadmapfilen;
-        savemapfile = (string)savemapfilen;
+    // if (!loadmapfilen.empty() && !savemapfilen.empty())
+    // {
+    //     loadmapfile = (string)loadmapfilen;
+    //     savemapfile = (string)savemapfilen;
+    // }
+
+    if (!in_loadmap && !in_savemap){
+        loadmapfile = (cfg.map_loadfile).c_str();
+        savemapfile = (cfg.map_savefile).c_str();
     }
 
     //Load ORB Vocabulary
-    cout << endl << "Loading ORB Vocabulary. This could take a while..." << strVocFile << endl;
+    // cout << endl << "Loading ORB Vocabulary. This could take a while..." << strVocFile << endl;
+    cout << endl << "Loading ORB Vocabulary. This could take a while..." << cfg.cam_vocab << endl;
 
     mpVocabulary = new ORBVocabulary();
     bool bVocLoad = false; // chose loading method based on file extension
-    if (has_suffix(strVocFile, ".txt"))
-        bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-    else if(has_suffix(strVocFile, ".bin"))
-        bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile);
+    if (has_suffix(cfg.cam_vocab, ".txt"))
+        bVocLoad = mpVocabulary->loadFromTextFile(cfg.cam_vocab);
+    else if(has_suffix(cfg.cam_vocab, ".bin"))
+        bVocLoad = mpVocabulary->loadFromBinaryFile(cfg.cam_vocab);
     else
         bVocLoad = false;
     if(!bVocLoad)
     {
         cerr << "Wrong path to vocabulary. " << endl;
-        cerr << "Falied to open at: " << strVocFile << endl;
+        cerr << "Falied to open at: " << cfg.cam_vocab << endl;
         exit(-1);
     }
     cout << "Vocabulary loaded!" << endl << endl;
@@ -104,7 +112,7 @@ mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
 
     //Create KeyFrame Database
     //Create the Map
-    if (!loadmapfile.empty() && LoadMap(loadmapfile))
+    if (!in_loadmap && LoadMap(loadmapfile))
     {
         bReuseMap = true;
     }
@@ -122,8 +130,10 @@ mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
 
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
-    mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
-                             mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor, bReuseMap);
+    // mpTracker = new Tracking(this, mpVocabulary, cfg, mpFrameDrawer, mpMapDrawer,
+    //                          mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor, bReuseMap);
+    mpTracker = new Tracking(this, mpVocabulary, cfg, mpFrameDrawer, mpMapDrawer,
+    mpMap, mpKeyFrameDatabase, strSettingsFile, mSensor, bReuseMap);
 
 
     //Initialize the Local Mapping thread and launch

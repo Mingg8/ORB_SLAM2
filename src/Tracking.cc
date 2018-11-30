@@ -44,8 +44,11 @@ using namespace std;
 
 namespace ORB_SLAM2
 {
-
-Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, bool bReuseMap):
+// Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, bool bReuseMap):
+//     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
+//     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
+//     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
+Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Map *pMap, KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, bool bReuseMap):
     mState(NO_IMAGES_YET), mSensor(sensor), mbOnlyTracking(false), mbVO(false), mpORBVocabulary(pVoc),
     mpKeyFrameDB(pKFDB), mpInitializer(static_cast<Initializer*>(NULL)), mpSystem(pSys), mpViewer(NULL),
     mpFrameDrawer(pFrameDrawer), mpMapDrawer(pMapDrawer), mpMap(pMap), mnLastRelocFrameId(0)
@@ -53,10 +56,15 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     // Load camera parameters from settings file
 
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-    float fx = fSettings["Camera.fx"];
-    float fy = fSettings["Camera.fy"];
-    float cx = fSettings["Camera.cx"];
-    float cy = fSettings["Camera.cy"];
+    // float fx = fSettings["Camera_fx"];
+    // float fy = fSettings["Camera_fy"];
+    // float cx = fSettings["Camera_cx"];
+    // float cy = fSettings["Camera_cy"];
+
+    float fx= atof((cfg.cam_fx).c_str());
+    float fy= atof((cfg.cam_fy).c_str());
+    float cx= atof((cfg.cam_cx).c_str());
+    float cy= atof((cfg.cam_cy).c_str());
 
     cv::Mat K = cv::Mat::eye(3,3,CV_32F);
     K.at<float>(0,0) = fx;
@@ -66,11 +74,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     K.copyTo(mK);
 
     cv::Mat DistCoef(4,1,CV_32F);
-    DistCoef.at<float>(0) = fSettings["Camera.k1"];
-    DistCoef.at<float>(1) = fSettings["Camera.k2"];
-    DistCoef.at<float>(2) = fSettings["Camera.p1"];
-    DistCoef.at<float>(3) = fSettings["Camera.p2"];
-    const float k3 = fSettings["Camera.k3"];
+    DistCoef.at<float>(0) = fSettings["Camera_k1"];
+    DistCoef.at<float>(1) = fSettings["Camera_k2"];
+    DistCoef.at<float>(2) = fSettings["Camera_p1"];
+    DistCoef.at<float>(3) = fSettings["Camera_p2"];
+    const float k3 = fSettings["Camera_k3"];
     if(k3!=0)
     {
         DistCoef.resize(5);
@@ -78,9 +86,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     }
     DistCoef.copyTo(mDistCoef);
 
-    mbf = fSettings["Camera.bf"];
+    mbf = fSettings["Camera_bf"];
 
-    float fps = fSettings["Camera.fps"];
+    float fps = fSettings["Camera_fps"];
     if(fps==0)
         fps=30;
 
@@ -112,11 +120,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
 
     // Load ORB parameters
 
-    int nFeatures = fSettings["ORBextractor.nFeatures"];
-    float fScaleFactor = fSettings["ORBextractor.scaleFactor"];
-    int nLevels = fSettings["ORBextractor.nLevels"];
-    int fIniThFAST = fSettings["ORBextractor.iniThFAST"];
-    int fMinThFAST = fSettings["ORBextractor.minThFAST"];
+    int nFeatures = fSettings["ORBextractor_nFeatures"];
+    float fScaleFactor = fSettings["ORBextractor_scaleFactor"];
+    int nLevels = fSettings["ORBextractor_nLevels"];
+    int fIniThFAST = fSettings["ORBextractor_iniThFAST"];
+    int fMinThFAST = fSettings["ORBextractor_minThFAST"];
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 

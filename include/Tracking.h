@@ -25,13 +25,14 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
 
+#include "Common.h"
 #include"Viewer.h"
 #include"FrameDrawer.h"
 #include"Map.h"
 #include"LocalMapping.h"
 #include"LoopClosing.h"
 #include"Frame.h"
-#include "ORBVocabulary.h"
+#include"ORBVocabulary.h"
 #include"KeyFrameDatabase.h"
 #include"ORBextractor.h"
 #include "Initializer.h"
@@ -39,7 +40,6 @@
 #include "System.h"
 
 #include <mutex>
-
 namespace ORB_SLAM2
 {
 
@@ -54,9 +54,11 @@ class Tracking
 {  
 
 public:
-
-    Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
+    Tracking(System* pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, bool bReuseMap=false);
+
+    // Tracking(System* pSys, ORBVocabulary* pVoc,FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
+    //          KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor, bool bReuseMap=false);
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
     cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp);
@@ -74,7 +76,6 @@ public:
 
     // Use this function if you have deactivated local mapping and you only want to localize the camera.
     void InformOnlyTracking(const bool &flag);
-
 
 public:
 

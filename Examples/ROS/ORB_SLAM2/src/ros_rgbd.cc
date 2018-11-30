@@ -53,10 +53,10 @@ typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sens
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM2::System* _SLAM, const bool mapInitiation, const cv::Mat mtx, const string RGBTopic, const string depthTopic, 
-                const string robotPoseTopic, const string camPoseTopic):SLAM(_SLAM){}
+    ImageGrabber(ORB_SLAM2::System* _SLAM, const bool mapInitiation, const cv::Mat mtx, const string _RGBTopic, const string _depthTopic, const string _robotPoseTopic, const string _camPoseTopic)
+                :SLAM(_SLAM), RGBTopic(_RGBTopic), depthTopic(_depthTopic), robotPoseTopic(_robotPoseTopic), camPoseTopic(_camPoseTopic){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
-
+    string RGBTopic, depthTopic, robotPoseTopic, camPoseTopic;
     std::vector<std::vector<float>> amcl_poses;
     std::vector<std::vector<float>> orb_poses;
 
@@ -65,12 +65,10 @@ public:
     void Initialize();
 
     ORB_SLAM2::System* SLAM ;
-    ros::NodeHandle private_nh;
     bool mapInitiation;
     cv::Mat calibMtx;
     geometry_msgs::Pose pose_msg;
 
-    string RGBTopic, depthTopic, robotPoseTopic, camPoseTopic;
 
 
     int image_grab_count = 0;
@@ -85,13 +83,12 @@ public:
 
 void ImageGrabber::Initialize()
 {
-    pose_pub = nh.advertise<geometry_msgs::Pose>(robotPoseTopic, 30);
+    pose_pub = nh.advertise<geometry_msgs::Pose>(camPoseTopic, 30);
     rgb_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, RGBTopic, 1);
     depth_sub = new message_filters::Subscriber<sensor_msgs::Image>(nh, depthTopic, 1);
 
     sync = new message_filters::Synchronizer<sync_pol>(sync_pol(10), *rgb_sub, *depth_sub);
     sync->registerCallback(boost::bind(&ImageGrabber::GrabRGBD, this, _1, _2));
-
     ros::Subscriber amcl_sub = nh.subscribe(robotPoseTopic, 1000, &ImageGrabber::amclCallback, this);
     ros::spin();
 
@@ -236,49 +233,126 @@ int main(int argc, char **argv)
     bool saveMapfile = true;
 
     //Check settings file
-    cout<<"file name: "<< (string)argv[argv_ind]<<endl;
-    cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
-    if(!fsSettings.isOpened())
-    {
-       cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
-       exit(-1);
-    }
+    // cout<<"file name: "<< (string)argv[argv_ind]<<endl;
+    // cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
+    // cv::FileStorage fsSettings("/home/mjlee/data/orb.yaml", cv::FileStorage::READ);
+    cout<<"debug"<<endl;
+    // if(!fsSettings.isOpened())
+    // {
+    //    cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
+    //    exit(-1);
+    // }
+    // else{
+    //     cout<<"fsSetting opened"<<endl;
+    // }    
 
+    //////////////////////////////////////////////////////////////////
+    ros::NodeHandle private_nh("~");
+    // std::map<std::string, std::string> map_s;
+    // private_nh.getParam("param", map_s);
+    // cout<<"parameters"<<map_s.size()<<endl;
+    // for(auto it=map_s.begin(); it!= map_s.end(); ++it){
+    //     cout<<it->first<<" "<<it->second<<endl;
+    // }
+    //////////////////////////////////////////////////////////////////
+    CONFIG cfg;
+    private_nh.param("Camera_fx", cfg.cam_fx);
+    private_nh.param("Camera_fy", cfg.cam_fy);
+    private_nh.param("Camera_cx", cfg.cam_cx);
+    private_nh.param("Camera_cy", cfg.cam_cy);
+    private_nh.param("Camera_k1", cfg.cam_k1);
+    private_nh.param("Camera_k2", cfg.cam_k2);
+    private_nh.param("Camera_p1", cfg.cam_p1);
+    private_nh.param("Camera_p2", cfg.cam_p2);
+    private_nh.param("Camera_k3", cfg.cam_k3);
+    private_nh.param("Camera_width", cfg.cam_width);
+    private_nh.param("Camera_height", cfg.cam_height);
+    private_nh.param("Camera_fps", cfg.cam_fps);
+    private_nh.param("Camera_bf", cfg.cam_bf);
+    private_nh.param("Camera_RGB", cfg.cam_rgb);
+
+    private_nh.param("ThDepth", cfg.th_depth);
+    private_nh.param("DepthMapFactor", cfg.depth_map_factor);
+
+    private_nh.param("ORBextractor_nFeatures", cfg.orb_n_features);
+    private_nh.param("ORBextractor_scaleFractor", cfg.orb_scale_factor);
+    private_nh.param("ORBextractor_nLevels", cfg.orb_n_levels);
+    private_nh.param("ORBextractor_iniThFAST", cfg.orb_ini_th);
+    private_nh.param("ORBextractor_minThFAST", cfg.orb_min_th);
+
+    private_nh.param("Viewer_KeyFrameSize", cfg.viewer_frame_size);
+    private_nh.param("Viewer_KeyFrameLineWidth", cfg.viewer_frame_line_width);
+    private_nh.param("Viewer_GraphLineWidth", cfg.viewer_graph_line_width);
+    private_nh.param("Viewer_PointSize", cfg.viewer_point_size);
+    private_nh.param("Viewer_CameraSize", cfg.viewer_cam_size);
+    private_nh.param("Viewer_CameraLineWidth", cfg.viewer_cam_line_width);
+    private_nh.param("Viewer_ViewpointX", cfg.viewer_pointX);
+    private_nh.param("Viewer_ViewpointY", cfg.viewer_pointY);
+    private_nh.param("Viewer_ViewpointZ", cfg.viewer_pointZ);
+    private_nh.param("Viewer_ViewpointF", cfg.viewer_pointF);
+
+    private_nh.param("Map_loadMapfile", cfg.map_loadfile);
+    private_nh.param("Map_saveMapfile", cfg.map_savefile);
+
+    private_nh.param("Camera_OrbVoc", cfg.cam_vocab);
+    private_nh.param("Camera_CalibMtx", cfg.cam_calib);
+
+    private_nh.param("RANSAC_IterNum", cfg.rsc_itr);
+    private_nh.param("RANSAC_Thresh", cfg.rsc_th);
+    private_nh.param("RANSAC_TimeInterval", cfg.rsc_time_interval);
+
+    private_nh.param("ROS_CameraPoseTopic", cfg.ros_cam_pose_topic);
+    private_nh.param("ROS_RobotPoseTopic", cfg.ros_robot_pose_topic);
+    private_nh.param("ROS_CameraRGBTopic", cfg.ros_rgb_topic);
+    private_nh.param("ROS_CameraDepthTopic", cfg.ros_depth_topic);
+
+    //////////////////////////////////////////////////////////////////
     //TODO: Load setting file as vector(?) from yaml file or use absolute path
     //TODO: Code Refactoring
+    // cv::FileNode _loadmapfile = fsSettings["Map_loadMapfile"];
+    // cv::FileNode _vocfile = fsSettings["Camera_OrbVoc"];
+    // cv::FileNode _calibfile = fsSettings["Camera_CalibMtx"];
+    // cv::FileNode _itr_num = fsSettings["RANSAC_IterNum"];
+    // cv::FileNode _thresh = fsSettings["RANSAC_Thresh"];
+    // cv::FileNode _time_interval = fsSettings["RANSAC_TimeInterval"];
+    // cv::FileNode _camera_pose_topic = fsSettings["ROS_CameraPoseTopic"];
+    // cv::FileNode _robot_pose_topic = fsSettings["ROS_RobotPoseTopic"];
+    // cv::FileNode _camera_rgb_topic = fsSettings["ROS_CameraRGBTopic"];
+    // cv::FileNode _camera_depth_topic = fsSettings["ROS_CameraDepthTopic"];
+    ////////////////////////////////////////////////////////////////////
 
-    cv::FileNode _loadmapfile = fsSettings["Map.loadMapfile"];
-    cv:: FileNode _vocfile = fsSettings["Camera.OrbVoc"];
-    cv::FileNode _calibfile = fsSettings["Camera.CalibMtx"];
-    cv::FileNode _itr_num = fsSettings["RANSAC.IterNum"];
-    cv::FileNode _thresh = fsSettings["RANSAC.Thresh"];
-    cv::FileNode _time_interval = fsSettings["RANSAC.TimeInterval"];
-    cv::FileNode _camera_pose_topic = fsSettings["ROS.CameraPoseTopic"];
-    cv::FileNode _robot_pose_topic = fsSettings["ROS.RobotPoseTopic"];
-    cv::FileNode _camera_rgb_topic = fsSettings["ROS.CameraRGBTopic"];
-    cv::FileNode _camera_depth_topic = fsSettings["ROS.CameraDepthTopic"];
+    // string loadmapfile = (string)_loadmapfile;
+    // string vocfile = (string)_vocfile;
+    // string calibfile = (string)_calibfile;
+    // int itr_num = (int)_itr_num;
+    // float thresh = (float)_thresh;
+    // float time_interval = (float)_time_interval;
+    // string camera_pose_topic = (string)_camera_pose_topic;
+    // string robot_pose_topic = (string)_robot_pose_topic;
+    // string camera_rgb_topic = (string)_camera_rgb_topic;
+    // string camera_depth_topic = (string)_camera_depth_topic;
+    int itr_num = atoi((cfg.rsc_itr).c_str());
+    float thresh = atof((cfg.rsc_th).c_str());
+    float time_interval = atof((cfg.rsc_time_interval).c_str());
+    string loadmapfile = cfg.map_loadfile;
+    string vocfile = cfg.cam_vocab;
+    string calibfile = cfg.cam_calib;
+    string camera_pose_topic = cfg.ros_cam_pose_topic;
+    string robot_pose_topic = cfg.ros_robot_pose_topic;
+    string camera_rgb_topic = cfg.ros_rgb_topic;
+    string camera_depth_topic = cfg.ros_depth_topic;
 
-    string loadmapfile = (string)_loadmapfile;
-    string vocfile = (string)_vocfile;
-    string calibfile = (string)_calibfile;
-    int itr_num = (int)_itr_num;
-    float thresh = (float)_thresh;
-    float time_interval = (float)_time_interval;
-    string camera_pose_topic = (string)_camera_pose_topic;
-    string robot_pose_topic = (string)_robot_pose_topic;
-    string camera_rgb_topic = (string)_camera_rgb_topic;
-    string camera_depth_topic = (string)_camera_depth_topic;
 
     cout<<"loadmapfile: "<<loadmapfile<<endl;
 
     //If calibration matrix or map file doesn't exist, initiate map
-    ifstream in(loadmapfile, ios_base::binary);
-    cv::FileStorage calib_fs(_calibfile, cv::FileStorage::READ);
-    if (!in.is_open() || !calib_fs.isOpened()){
-    mapInitiation = true;
+    ifstream in_load(loadmapfile, ios_base::binary);
+    cv::FileStorage calib_fs(calibfile, cv::FileStorage::READ);
+    if (!in_load.is_open() || !calib_fs.isOpened()){
+        mapInitiation = true;
     }
 
-    cout << "Map loading " << in.is_open() << endl;
+    cout << "Map loading " << in_load.is_open() << endl;
     cout << "calibration matrix loading " << calib_fs.isOpened() << endl;
 
     cv::Mat mtx;
@@ -290,7 +364,7 @@ int main(int argc, char **argv)
     }
     cout<<"Map initialization: "<< mapInitiation <<endl;
 
-    ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], ORB_SLAM2::System::RGBD, true, saveMapfile);
+    ORB_SLAM2::System mainSLAM(vocfile, argv[argv_ind], cfg, ORB_SLAM2::System::RGBD, true, saveMapfile);
     ImageGrabber igb(&mainSLAM, mapInitiation, mtx, camera_rgb_topic, camera_depth_topic, robot_pose_topic, camera_pose_topic);
     igb.Initialize();
 
