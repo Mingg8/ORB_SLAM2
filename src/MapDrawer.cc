@@ -28,16 +28,22 @@ namespace ORB_SLAM2
 {
 
 
-MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
+MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath, const CONFIG& cfg):mpMap(pMap)
 {
-    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+    // cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
-    mKeyFrameSize = fSettings["Viewer.KeyFrameSize"];
-    mKeyFrameLineWidth = fSettings["Viewer.KeyFrameLineWidth"];
-    mGraphLineWidth = fSettings["Viewer.GraphLineWidth"];
-    mPointSize = fSettings["Viewer.PointSize"];
-    mCameraSize = fSettings["Viewer.CameraSize"];
-    mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
+    // mKeyFrameSize = fSettings["Viewer.KeyFrameSize"];
+    // mKeyFrameLineWidth = fSettings["Viewer.KeyFrameLineWidth"];
+    // mGraphLineWidth = fSettings["Viewer.GraphLineWidth"];
+    // mPointSize = fSettings["Viewer.PointSize"];
+    // mCameraSize = fSettings["Viewer.CameraSize"];
+    // mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
+    mKeyFrameSize = cfg.viewer_frame_size;
+    mKeyFrameLineWidth = cfg.viewer_frame_line_width;
+    mGraphLineWidth = cfg.viewer_graph_line_width;
+    mPointSize = cfg.viewer_point_size;
+    mCameraSize = cfg.viewer_cam_size;
+    mCameraLineWidth = cfg.viewer_cam_line_width;  
 
 }
 

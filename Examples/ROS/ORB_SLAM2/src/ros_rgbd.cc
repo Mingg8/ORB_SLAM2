@@ -54,7 +54,7 @@ class ImageGrabber
 {
 public:
     ImageGrabber(ORB_SLAM2::System* _SLAM, const bool mapInitiation, const cv::Mat mtx, const string _RGBTopic, const string _depthTopic, const string _robotPoseTopic, const string _camPoseTopic)
-                :SLAM(_SLAM), RGBTopic(_RGBTopic), depthTopic(_depthTopic), robotPoseTopic(_robotPoseTopic), camPoseTopic(_camPoseTopic){}
+                :SLAM(_SLAM), RGBTopic(_RGBTopic), depthTopic(_depthTopic), robotPoseTopic(_robotPoseTopic), camPoseTopic(_camPoseTopic), calibMtx(mtx){}
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
     string RGBTopic, depthTopic, robotPoseTopic, camPoseTopic;
     std::vector<std::vector<float>> amcl_poses;
@@ -172,12 +172,10 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     tf::Matrix3x3 globalRotation_rh = cameraRotation_rh * rotation270degXZ;
     tf::Vector3 globalTranslation_rh = cameraTranslation * rotation270degXZ;
     tf::Transform transform = tf::Transform(globalRotation_rh, globalTranslation_rh);
-
     if(!mapInitiation){
-
         Matrix4f eigMtx;
+        <<calibMtx<<endl;
         cv::cv2eigen(calibMtx, eigMtx);
-
         Matrix4f poseMtx;
         poseMtx << globalRotation_rh.getRow(0).getX() , globalRotation_rh.getRow(0).getY(), globalRotation_rh.getRow(0).getZ(), globalTranslation_rh.getX(),
                     globalRotation_rh.getRow(1).getX(), globalRotation_rh.getRow(1).getY(), globalRotation_rh.getRow(1).getZ(), globalTranslation_rh.getY(),
@@ -195,7 +193,6 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     }
     else
         transform = tf::Transform(globalRotation_rh, globalTranslation_rh);
-
     pose_msg.position.x=transform.getOrigin().x();
     pose_msg.position.y=transform.getOrigin().y();
     pose_msg.position.z=transform.getOrigin().z();
@@ -233,18 +230,13 @@ int main(int argc, char **argv)
     bool saveMapfile = true;
 
     //Check settings file
-    // cout<<"file name: "<< (string)argv[argv_ind]<<endl;
-    // cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
-    // cv::FileStorage fsSettings("/home/mjlee/data/orb.yaml", cv::FileStorage::READ);
-    cout<<"debug"<<endl;
-    // if(!fsSettings.isOpened())
-    // {
-    //    cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
-    //    exit(-1);
-    // }
-    // else{
-    //     cout<<"fsSetting opened"<<endl;
-    // }    
+    cout<<"file name: "<< (string)argv[argv_ind]<<endl;
+    cv::FileStorage fsSettings((string)argv[argv_ind], cv::FileStorage::READ);
+    if(!fsSettings.isOpened())
+    {
+       cerr << "Failed to open settings file at: " << argv[argv_ind] << endl;
+       exit(-1);
+    }
 
     //////////////////////////////////////////////////////////////////
     ros::NodeHandle private_nh("~");
@@ -256,55 +248,55 @@ int main(int argc, char **argv)
     // }
     //////////////////////////////////////////////////////////////////
     CONFIG cfg;
-    private_nh.param("Camera_fx", cfg.cam_fx);
-    private_nh.param("Camera_fy", cfg.cam_fy);
-    private_nh.param("Camera_cx", cfg.cam_cx);
-    private_nh.param("Camera_cy", cfg.cam_cy);
-    private_nh.param("Camera_k1", cfg.cam_k1);
-    private_nh.param("Camera_k2", cfg.cam_k2);
-    private_nh.param("Camera_p1", cfg.cam_p1);
-    private_nh.param("Camera_p2", cfg.cam_p2);
-    private_nh.param("Camera_k3", cfg.cam_k3);
-    private_nh.param("Camera_width", cfg.cam_width);
-    private_nh.param("Camera_height", cfg.cam_height);
-    private_nh.param("Camera_fps", cfg.cam_fps);
-    private_nh.param("Camera_bf", cfg.cam_bf);
-    private_nh.param("Camera_RGB", cfg.cam_rgb);
+    private_nh.getParam("Camera_fx", cfg.cam_fx);
+    private_nh.getParam("Camera_fy", cfg.cam_fy);
+    private_nh.getParam("Camera_cx", cfg.cam_cx);
+    private_nh.getParam("Camera_cy", cfg.cam_cy);
+    private_nh.getParam("Camera_k1", cfg.cam_k1);
+    private_nh.getParam("Camera_k2", cfg.cam_k2);
+    private_nh.getParam("Camera_p1", cfg.cam_p1);
+    private_nh.getParam("Camera_p2", cfg.cam_p2);
+    private_nh.getParam("Camera_k3", cfg.cam_k3);
+    private_nh.getParam("Camera_width", cfg.cam_width);
+    private_nh.getParam("Camera_height", cfg.cam_height);
+    private_nh.getParam("Camera_fps", cfg.cam_fps);
+    private_nh.getParam("Camera_bf", cfg.cam_bf);
+    private_nh.getParam("Camera_RGB", cfg.cam_rgb);
 
-    private_nh.param("ThDepth", cfg.th_depth);
-    private_nh.param("DepthMapFactor", cfg.depth_map_factor);
+    private_nh.getParam("ThDepth", cfg.th_depth);
+    private_nh.getParam("DepthMapFactor", cfg.depth_map_factor);
 
-    private_nh.param("ORBextractor_nFeatures", cfg.orb_n_features);
-    private_nh.param("ORBextractor_scaleFractor", cfg.orb_scale_factor);
-    private_nh.param("ORBextractor_nLevels", cfg.orb_n_levels);
-    private_nh.param("ORBextractor_iniThFAST", cfg.orb_ini_th);
-    private_nh.param("ORBextractor_minThFAST", cfg.orb_min_th);
+    private_nh.getParam("ORBextractor_nFeatures", cfg.orb_n_features);
+    private_nh.getParam("ORBextractor_scaleFactor", cfg.orb_scale_factor);
+    private_nh.getParam("ORBextractor_nLevels", cfg.orb_n_levels);
+    private_nh.getParam("ORBextractor_iniThFAST", cfg.orb_ini_th);
+    private_nh.getParam("ORBextractor_minThFAST", cfg.orb_min_th);
 
-    private_nh.param("Viewer_KeyFrameSize", cfg.viewer_frame_size);
-    private_nh.param("Viewer_KeyFrameLineWidth", cfg.viewer_frame_line_width);
-    private_nh.param("Viewer_GraphLineWidth", cfg.viewer_graph_line_width);
-    private_nh.param("Viewer_PointSize", cfg.viewer_point_size);
-    private_nh.param("Viewer_CameraSize", cfg.viewer_cam_size);
-    private_nh.param("Viewer_CameraLineWidth", cfg.viewer_cam_line_width);
-    private_nh.param("Viewer_ViewpointX", cfg.viewer_pointX);
-    private_nh.param("Viewer_ViewpointY", cfg.viewer_pointY);
-    private_nh.param("Viewer_ViewpointZ", cfg.viewer_pointZ);
-    private_nh.param("Viewer_ViewpointF", cfg.viewer_pointF);
+    private_nh.getParam("Viewer_KeyFrameSize", cfg.viewer_frame_size);
+    private_nh.getParam("Viewer_KeyFrameLineWidth", cfg.viewer_frame_line_width);
+    private_nh.getParam("Viewer_GraphLineWidth", cfg.viewer_graph_line_width);
+    private_nh.getParam("Viewer_PointSize", cfg.viewer_point_size);
+    private_nh.getParam("Viewer_CameraSize", cfg.viewer_cam_size);
+    private_nh.getParam("Viewer_CameraLineWidth", cfg.viewer_cam_line_width);
+    private_nh.getParam("Viewer_ViewpointX", cfg.viewer_pointX);
+    private_nh.getParam("Viewer_ViewpointY", cfg.viewer_pointY);
+    private_nh.getParam("Viewer_ViewpointZ", cfg.viewer_pointZ);
+    private_nh.getParam("Viewer_ViewpointF", cfg.viewer_pointF);
 
-    private_nh.param("Map_loadMapfile", cfg.map_loadfile);
-    private_nh.param("Map_saveMapfile", cfg.map_savefile);
+    private_nh.getParam("Map_loadMapfile", cfg.map_loadfile);
+    private_nh.getParam("Map_saveMapfile", cfg.map_savefile);
 
-    private_nh.param("Camera_OrbVoc", cfg.cam_vocab);
-    private_nh.param("Camera_CalibMtx", cfg.cam_calib);
+    private_nh.getParam("Camera_OrbVoc", cfg.cam_vocab);
+    private_nh.getParam("Camera_CalibMtx", cfg.cam_calib);
 
-    private_nh.param("RANSAC_IterNum", cfg.rsc_itr);
-    private_nh.param("RANSAC_Thresh", cfg.rsc_th);
-    private_nh.param("RANSAC_TimeInterval", cfg.rsc_time_interval);
+    private_nh.getParam("RANSAC_IterNum", cfg.rsc_itr);
+    private_nh.getParam("RANSAC_Thresh", cfg.rsc_th);
+    private_nh.getParam("RANSAC_TimeInterval", cfg.rsc_time_interval);
 
-    private_nh.param("ROS_CameraPoseTopic", cfg.ros_cam_pose_topic);
-    private_nh.param("ROS_RobotPoseTopic", cfg.ros_robot_pose_topic);
-    private_nh.param("ROS_CameraRGBTopic", cfg.ros_rgb_topic);
-    private_nh.param("ROS_CameraDepthTopic", cfg.ros_depth_topic);
+    private_nh.getParam("ROS_CameraPoseTopic", cfg.ros_cam_pose_topic);
+    private_nh.getParam("ROS_RobotPoseTopic", cfg.ros_robot_pose_topic);
+    private_nh.getParam("ROS_CameraRGBTopic", cfg.ros_rgb_topic);
+    private_nh.getParam("ROS_CameraDepthTopic", cfg.ros_depth_topic);
 
     //////////////////////////////////////////////////////////////////
     //TODO: Load setting file as vector(?) from yaml file or use absolute path
@@ -331,9 +323,12 @@ int main(int argc, char **argv)
     // string robot_pose_topic = (string)_robot_pose_topic;
     // string camera_rgb_topic = (string)_camera_rgb_topic;
     // string camera_depth_topic = (string)_camera_depth_topic;
-    int itr_num = atoi((cfg.rsc_itr).c_str());
-    float thresh = atof((cfg.rsc_th).c_str());
-    float time_interval = atof((cfg.rsc_time_interval).c_str());
+    // int itr_num = atoi((cfg.rsc_itr).c_str());
+    // float thresh = atof((cfg.rsc_th).c_str());
+    // float time_interval = atof((cfg.rsc_time_interval).c_str());
+    int itr_num = cfg.rsc_itr;
+    float thresh = cfg.rsc_th;
+    float time_interval = cfg.rsc_time_interval;
     string loadmapfile = cfg.map_loadfile;
     string vocfile = cfg.cam_vocab;
     string calibfile = cfg.cam_calib;

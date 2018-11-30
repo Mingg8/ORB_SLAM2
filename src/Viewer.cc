@@ -28,29 +28,29 @@
 namespace ORB_SLAM2
 {
 
-Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const string &strSettingPath, bool mbReuseMap_):
+Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const string &strSettingPath, bool mbReuseMap_, const CONFIG &cfg):
     mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
     mbFinishRequested(false), mbFinished(true), mbStopped(true), mbStopRequested(false), mbReuseMap(mbReuseMap_)
 {
-    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+    // cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
-    float fps = fSettings["Camera.fps"];
+    float fps = cfg.cam_fps;
     if(fps<1)
         fps=30;
     mT = 1e3/fps;
 
-    mImageWidth = fSettings["Camera.width"];
-    mImageHeight = fSettings["Camera.height"];
+    mImageWidth =  cfg.cam_width;
+    mImageHeight = cfg.cam_height;
     if(mImageWidth<1 || mImageHeight<1)
     {
         mImageWidth = 640;
         mImageHeight = 480;
     }
 
-    mViewpointX = fSettings["Viewer.ViewpointX"];
-    mViewpointY = fSettings["Viewer.ViewpointY"];
-    mViewpointZ = fSettings["Viewer.ViewpointZ"];
-    mViewpointF = fSettings["Viewer.ViewpointF"];
+    mViewpointX = cfg.viewer_pointX;
+    mViewpointY = cfg.viewer_pointY;
+    mViewpointZ = cfg.viewer_pointZ;
+    mViewpointF = cfg.viewer_pointF;
 }
 
 void Viewer::Run()

@@ -59,12 +59,12 @@ mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
         cout << "RGB-D" << endl;
 
     //Check settings file
-    cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);
-    if(!fsSettings.isOpened())
-    {
-       cerr << "Failed to open settings file at: " << strSettingsFile << endl;
-       exit(-1);
-    }
+    // cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);
+    // if(!fsSettings.isOpened())
+    // {
+    //    cerr << "Failed to open settings file at: " << strSettingsFile << endl;
+    //    exit(-1);
+    // }
 
     // cv::FileNode loadmapfilen = fsSettings["Map_loadMapfile"];
     std::ifstream in_loadmap((cfg.map_loadfile).c_str()); 
@@ -124,7 +124,7 @@ mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
 
     //Create Drawers. These are used by the Viewer
     mpFrameDrawer = new FrameDrawer(mpMap, bReuseMap);
-    mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
+    mpMapDrawer = new MapDrawer(mpMap, strSettingsFile, cfg);
 
 
 
@@ -149,7 +149,7 @@ mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
     //Initialize the Viewer thread and launch
     if(bUseViewer)
     {
-        mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile, bReuseMap);
+        mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile, bReuseMap, cfg);
         mptViewer = new thread(&Viewer::Run, mpViewer);
         mpTracker->SetViewer(mpViewer);
     }
@@ -219,12 +219,12 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp)
 {
+    cout<<"TrackRGBD"<<endl;
     if(mSensor!=RGBD)
     {
         cerr << "ERROR: you called TrackRGBD but input sensor was not set to RGBD." << endl;
         exit(-1);
     }
-
     // Check mode change
     {
         unique_lock<mutex> lock(mMutexMode);

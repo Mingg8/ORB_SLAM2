@@ -55,16 +55,16 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDr
 {
     // Load camera parameters from settings file
 
-    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+    // cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
     // float fx = fSettings["Camera_fx"];
     // float fy = fSettings["Camera_fy"];
     // float cx = fSettings["Camera_cx"];
     // float cy = fSettings["Camera_cy"];
 
-    float fx= atof((cfg.cam_fx).c_str());
-    float fy= atof((cfg.cam_fy).c_str());
-    float cx= atof((cfg.cam_cx).c_str());
-    float cy= atof((cfg.cam_cy).c_str());
+    float fx= cfg.cam_fx;
+    float fy= cfg.cam_fy;
+    float cx= cfg.cam_cx;
+    float cy= cfg.cam_cy;
 
     cv::Mat K = cv::Mat::eye(3,3,CV_32F);
     K.at<float>(0,0) = fx;
@@ -74,11 +74,18 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDr
     K.copyTo(mK);
 
     cv::Mat DistCoef(4,1,CV_32F);
-    DistCoef.at<float>(0) = fSettings["Camera_k1"];
-    DistCoef.at<float>(1) = fSettings["Camera_k2"];
-    DistCoef.at<float>(2) = fSettings["Camera_p1"];
-    DistCoef.at<float>(3) = fSettings["Camera_p2"];
-    const float k3 = fSettings["Camera_k3"];
+    // DistCoef.at<float>(0) = fSettings["Camera_k1"];
+    // DistCoef.at<float>(1) = fSettings["Camera_k2"];
+    // DistCoef.at<float>(2) = fSettings["Camera_p1"];
+    // DistCoef.at<float>(3) = fSettings["Camera_p2"];
+    // const float k3 = fSettings["Camera_k3"];
+
+
+    DistCoef.at<float>(0) = cfg.cam_k1;;
+    DistCoef.at<float>(1) = cfg.cam_k2;
+    DistCoef.at<float>(2) = cfg.cam_p1;
+    DistCoef.at<float>(3) = cfg.cam_p2;
+    const float k3 = cfg.cam_k3;
     if(k3!=0)
     {
         DistCoef.resize(5);
@@ -86,9 +93,9 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDr
     }
     DistCoef.copyTo(mDistCoef);
 
-    mbf = fSettings["Camera_bf"];
+    mbf = cfg.cam_bf;
 
-    float fps = fSettings["Camera_fps"];
+    float fps = cfg.cam_fps;
     if(fps==0)
         fps=30;
 
@@ -110,7 +117,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDr
     cout << "- fps: " << fps << endl;
 
 
-    int nRGB = fSettings["Camera.RGB"];
+    int nRGB = cfg.cam_rgb;
     mbRGB = nRGB;
 
     if(mbRGB)
@@ -120,11 +127,11 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDr
 
     // Load ORB parameters
 
-    int nFeatures = fSettings["ORBextractor_nFeatures"];
-    float fScaleFactor = fSettings["ORBextractor_scaleFactor"];
-    int nLevels = fSettings["ORBextractor_nLevels"];
-    int fIniThFAST = fSettings["ORBextractor_iniThFAST"];
-    int fMinThFAST = fSettings["ORBextractor_minThFAST"];
+    int nFeatures = cfg.orb_n_features;
+    float fScaleFactor = cfg.orb_scale_factor;
+    int nLevels = cfg.orb_n_levels;
+    int fIniThFAST = cfg.orb_ini_th;
+    int fMinThFAST = cfg.orb_min_th;
 
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
@@ -143,13 +150,13 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, const CONFIG& cfg, FrameDr
 
     if(sensor==System::STEREO || sensor==System::RGBD)
     {
-        mThDepth = mbf*(float)fSettings["ThDepth"]/fx;
+        mThDepth = mbf*(float)cfg.th_depth/fx;
         cout << endl << "Depth Threshold (Close/Far Points): " << mThDepth << endl;
     }
 
     if(sensor==System::RGBD)
     {
-        mDepthMapFactor = fSettings["DepthMapFactor"];
+        mDepthMapFactor = cfg.depth_map_factor;
         if(fabs(mDepthMapFactor)<1e-5)
             mDepthMapFactor=1;
         else
@@ -314,7 +321,6 @@ void Tracking::Track()
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
                 CheckReplacedInLastFrame();
-
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
                 {
                     bOK = TrackReferenceKeyFrame();
@@ -495,7 +501,6 @@ void Tracking::Track()
 
         mLastFrame = Frame(mCurrentFrame);
     }
-
     // Store frame pose information to retrieve the complete camera trajectory afterwards.
     if(!mCurrentFrame.mTcw.empty())
     {
@@ -558,16 +563,14 @@ void Tracking::StereoInitialization()
         mpLastKeyFrame = pKFini;
 
         mvpLocalKeyFrames.push_back(pKFini);
+        
         mvpLocalMapPoints=mpMap->GetAllMapPoints();
         mpReferenceKF = pKFini;
         mCurrentFrame.mpReferenceKF = pKFini;
 
         mpMap->SetReferenceMapPoints(mvpLocalMapPoints);
-
         mpMap->mvpKeyFrameOrigins.push_back(pKFini);
-
         mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
-
         mState=OK;
     }
 }
@@ -1564,13 +1567,13 @@ void Tracking::Reset()
         mpViewer->Release();
 }
 
-void Tracking::ChangeCalibration(const string &strSettingPath)
+void Tracking::ChangeCalibration(const string &strSettingPath, const CONFIG &cfg)
 {
-    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-    float fx = fSettings["Camera.fx"];
-    float fy = fSettings["Camera.fy"];
-    float cx = fSettings["Camera.cx"];
-    float cy = fSettings["Camera.cy"];
+    // cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+    float fx = cfg.cam_fx;
+    float fy = cfg.cam_fy;
+    float cx = cfg.cam_cx;
+    float cy = cfg.cam_cy;
 
     cv::Mat K = cv::Mat::eye(3,3,CV_32F);
     K.at<float>(0,0) = fx;
@@ -1580,11 +1583,11 @@ void Tracking::ChangeCalibration(const string &strSettingPath)
     K.copyTo(mK);
 
     cv::Mat DistCoef(4,1,CV_32F);
-    DistCoef.at<float>(0) = fSettings["Camera.k1"];
-    DistCoef.at<float>(1) = fSettings["Camera.k2"];
-    DistCoef.at<float>(2) = fSettings["Camera.p1"];
-    DistCoef.at<float>(3) = fSettings["Camera.p2"];
-    const float k3 = fSettings["Camera.k3"];
+    DistCoef.at<float>(0) = cfg.cam_k1;
+    DistCoef.at<float>(1) = cfg.cam_k2;
+    DistCoef.at<float>(2) = cfg.cam_p1;
+    DistCoef.at<float>(3) = cfg.cam_p2;
+    const float k3 = cfg.cam_k3;
     if(k3!=0)
     {
         DistCoef.resize(5);
@@ -1592,7 +1595,7 @@ void Tracking::ChangeCalibration(const string &strSettingPath)
     }
     DistCoef.copyTo(mDistCoef);
 
-    mbf = fSettings["Camera.bf"];
+    mbf = cfg.cam_bf;
 
     Frame::mbInitialComputations = true;
 }

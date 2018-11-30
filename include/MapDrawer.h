@@ -21,6 +21,7 @@
 #ifndef MAPDRAWER_H
 #define MAPDRAWER_H
 
+#include "Common.h"
 #include"Map.h"
 #include"MapPoint.h"
 #include"KeyFrame.h"
@@ -34,7 +35,7 @@ namespace ORB_SLAM2
 class MapDrawer
 {
 public:
-    MapDrawer(Map* pMap, const string &strSettingPath);
+    MapDrawer(Map* pMap, const string &strSettingPath, const CONFIG &cfg);
 
     Map* mpMap;
 
